@@ -188,10 +188,10 @@ export default function Home() {
 </div>
 
               {/* INPUT ROWS */}
-<div className="space-y-2">
+<div className="space-y-0">
 
 {/* VOLTAGE */}
-<div className="group grid grid-cols-1 md:grid-cols-[64px_1fr_180px] items-center border-b border-cyan-500/10 py-4 sm:py-5 relative gap-4 transition-all duration-300 hover:border-cyan-400/30">
+<div className="group grid grid-cols-1 md:grid-cols-[64px_1fr_180px] items-center border-b border-cyan-500/10 py-1 sm:py-2 relative gap-4 transition-all duration-300 hover:border-cyan-400/30">
 
   <div className="flex justify-center">
     <Zap
@@ -217,13 +217,13 @@ export default function Home() {
     step="0.01"
     value={voltage}
     onChange={(e) => setVoltage(e.target.value)}
-    className="h-[64px] bg-black/70 border border-cyan-500/20 rounded-xl px-5 text-2xl text-white transition-all duration-300 hover:border-cyan-400/40 hover:bg-cyan-400/[0.03] focus:outline-none focus:border-cyan-300 focus:shadow-[0_0_18px_rgba(0,255,255,0.15)]"
+    className="h-[54px] bg-black/70 border border-cyan-500/20 rounded-xl px-5 text-2xl text-white transition-all duration-300 hover:border-cyan-400/40 hover:bg-cyan-400/[0.03] focus:outline-none focus:border-cyan-300 focus:shadow-[0_0_18px_rgba(0,255,255,0.15)]"
   />
 <div className="absolute right-2 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_12px_rgba(0,255,255,0.8)]" />
 </div>
 
 {/* AMPERAGE */}
-<div className="group grid grid-cols-1 md:grid-cols-[64px_1fr_180px] items-center border-b border-cyan-500/10 py-4 sm:py-5 relative gap-4 transition-all duration-300 hover:border-cyan-400/30">
+<div className="group grid grid-cols-1 md:grid-cols-[64px_1fr_180px] items-center border-b border-cyan-500/10 py-1 sm:py-2 relative gap-4 transition-all duration-300 hover:border-cyan-400/30">
 
   <div className="flex justify-center">
     <Activity
@@ -249,13 +249,13 @@ export default function Home() {
     step="0.01"
     value={amperage}
     onChange={(e) => setAmperage(e.target.value)}
-    className="h-[64px] bg-black/70 border border-cyan-500/20 rounded-xl px-5 text-2xl text-white transition-all duration-300 hover:border-cyan-400/40 hover:bg-cyan-400/[0.03] focus:outline-none focus:border-cyan-300 focus:shadow-[0_0_18px_rgba(0,255,255,0.15)]"
+    className="h-[54px] bg-black/70 border border-cyan-500/20 rounded-xl px-5 text-2xl text-white transition-all duration-300 hover:border-cyan-400/40 hover:bg-cyan-400/[0.03] focus:outline-none focus:border-cyan-300 focus:shadow-[0_0_18px_rgba(0,255,255,0.15)]"
   />
 <div className="absolute right-2 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_12px_rgba(0,255,255,0.8)]" />
 </div>
 
 {/* SPEED */}
-<div className="group grid grid-cols-1 md:grid-cols-[64px_1fr_180px] items-center border-b border-cyan-500/10 py-4 sm:py-5 relative gap-4 transition-all duration-300 hover:border-cyan-400/30">
+<div className="group grid grid-cols-1 md:grid-cols-[64px_1fr_180px] items-center border-b border-cyan-500/10 py-1 sm:py-2 relative gap-4 transition-all duration-300 hover:border-cyan-400/30">
 
   <div className="flex justify-center">
     <Gauge
@@ -281,13 +281,13 @@ export default function Home() {
     step="0.01"
     value={speed}
     onChange={(e) => setSpeed(e.target.value)}
-    className="h-[64px] bg-black/70 border border-cyan-500/20 rounded-xl px-5 text-2xl text-white transition-all duration-300 hover:border-cyan-400/40 hover:bg-cyan-400/[0.03] focus:outline-none focus:border-cyan-300 focus:shadow-[0_0_18px_rgba(0,255,255,0.15)]"
+    className="h-[54px] bg-black/70 border border-cyan-500/20 rounded-xl px-5 text-2xl text-white transition-all duration-300 hover:border-cyan-400/40 hover:bg-cyan-400/[0.03] focus:outline-none focus:border-cyan-300 focus:shadow-[0_0_18px_rgba(0,255,255,0.15)]"
   />
 <div className="absolute right-2 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_12px_rgba(0,255,255,0.8)]" />
 </div>
 
 {/* PROCESS */}
-<div className="group grid grid-cols-1 md:grid-cols-[64px_1fr_180px] items-center border-b border-cyan-500/10 py-4 sm:py-5 relative gap-4 transition-all duration-300 hover:border-cyan-400/30">
+<div className="group grid grid-cols-1 md:grid-cols-[64px_1fr_180px] items-center border-b border-cyan-500/10 py-1 sm:py-2 relative gap-4 transition-all duration-300 hover:border-cyan-400/30">
 
   <div className="flex justify-center">
   <Flame
@@ -306,24 +306,32 @@ export default function Home() {
 
   </div>
 
+  
   <select
-  value={efficiency}
+  value={processName}
   onChange={(e) => {
-    setEfficiency(parseFloat(e.target.value));
-
-    const selected =
-      e.target.options[e.target.selectedIndex].text;
+    const selected = e.target.value;
 
     setProcessName(selected);
+
+    if (selected === "MIG / MAG") setEfficiency(0.8);
+    if (selected === "TIG") setEfficiency(0.6);
+    if (selected === "Elektrode") setEfficiency(0.75);
+    if (selected === "SAW") setEfficiency(1.0);
   }}
-  className="h-[64px] bg-black/70 border border-cyan-500/20 rounded-xl px-5 text-2xl text-white transition-all duration-300 hover:border-cyan-400/40 hover:bg-cyan-400/[0.03] focus:outline-none focus:border-cyan-300 focus:shadow-[0_0_18px_rgba(0,255,255,0.15)]"
+  style={{
+    backgroundColor: "#020617",
+    color: "#ffffff",
+  }}
+  className="appearance-none h-[54px] bg-black/70 border border-cyan-500/20 rounded-xl px-5 text-2xl text-white transition-all duration-300 hover:border-cyan-400/40 hover:bg-cyan-400/[0.03] focus:outline-none focus:border-cyan-300 focus:shadow-[0_0_18px_rgba(0,255,255,0.15)]"
 >
-  <option value="0.8">MIG / MAG</option>
-  <option value="0.6">TIG</option>
-  <option value="0.8">Elektrode</option>
-  <option value="1.0">SAW</option>
+  <option value="MIG / MAG">MIG / MAG</option>
+  <option value="TIG">TIG</option>
+  <option value="Elektrode">Elektrode</option>
+  <option value="SAW">SAW</option>
 </select>
-  <div className="absolute right-2 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_12px_rgba(0,255,255,0.8)]" />
+
+<div className="absolute right-2 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_12px_rgba(0,255,255,0.8)]" />
 </div>
 
 {/* K FACTOR */}
@@ -364,8 +372,6 @@ export default function Home() {
       />
 
     </button>
-
-  </div>
 
   </div>
 
@@ -531,7 +537,7 @@ export default function Home() {
 </div>
                 </div>
 
-                
+                </div> 
 
               </div>
 {/* PREMIUM PANEL */}
