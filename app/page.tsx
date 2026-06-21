@@ -92,25 +92,25 @@ export default function Home() {
       {/* NAVBAR */}
 <header className="relative z-20 border-b border-cyan-500/20 bg-black/60 backdrop-blur-xl">
 
-<div className="max-w-5xl mx-auto flex items-center justify-between relative px-3 sm:px-6 py-2">
+<div className="max-w-5xl mx-auto flex items-center justify-between relative px-2 sm:px-6 py-1 sm:py-2">
 
   {/* LEFT MENU */}
-  <button className="group flex items-center justify-center w-14 h-14 rounded-2xl border border-cyan-500/20 bg-black/40 hover:border-cyan-400/60 transition-all">
+  <button className="group flex items-center justify-center w-11 h-11 sm:w-14 sm:h-14 rounded-2xl border border-cyan-500/20 bg-black/40 hover:border-cyan-400/60 transition-all">
 
-  <div className="relative flex items-center justify-center w-9 h-9 sm:w-12 sm:h-12 rounded-xl border border-cyan-500/20 bg-black/40 backdrop-blur-xl">
+<div className="relative flex items-center justify-center w-8 h-8 sm:w-12 sm:h-12 rounded-xl border border-cyan-500/20 bg-black/40 backdrop-blur-xl">
 
-<Menu size={22} className="text-cyan-300" />
+  <Menu size={22} className="text-cyan-300" />
 
-<div className="absolute inset-0 rounded-xl shadow-[0_0_20px_rgba(0,255,255,0.08)]" />
+  <div className="absolute inset-0 rounded-xl shadow-[0_0_20px_rgba(0,255,255,0.08)]" />
 
 </div>
 
-  </button>
+</button>
 
   {/* BRAND */}
   <div className="text-center">
 
-  <h1 className="text-[0.95rem] sm:text-[2.4rem] font-black tracking-[0.48em] sm:tracking-[0.7em] uppercase italic leading-none">
+  <h1 className="text-[0.75rem] sm:text-[2.4rem] font-black tracking-[0.25em] sm:tracking-[0.7em] uppercase italic leading-none">
 
   <span className="text-white">
     DOST
@@ -124,7 +124,7 @@ export default function Home() {
 
 </h1>
 
-<p className="mt-2 text-[0.55rem] sm:text-sm tracking-[0.35em] sm:tracking-[0.45em] uppercase text-zinc-500">
+<p className="mt-1 text-[0.45rem] sm:text-sm tracking-[0.35em] sm:tracking-[0.45em] uppercase text-zinc-500">
   ADVANCED WELDING SOFTWARE
 </p>
 
@@ -173,14 +173,14 @@ export default function Home() {
 
   <div className="w-8 sm:w-10 h-[1px] bg-cyan-500/40" />
 
-  <h2 className="text-[0.9rem] sm:text-[1.35rem] font-semibold tracking-[0.22em] uppercase text-white">
+  <h2 className="text-[0.7rem] sm:text-[1.35rem] font-semibold tracking-[0.14em] sm:tracking-[0.22em] uppercase text-white whitespace-nowrap">
 
-    HEAT INPUT
-    <span className="text-cyan-300 ml-3">
-      CALCULATOR
-    </span>
+  HEAT INPUT
+  <span className="text-cyan-300 ml-2">
+    CALCULATOR
+  </span>
 
-  </h2>
+</h2>
 
   <div className="w-8 sm:w-10 h-[1px] bg-cyan-500/40" />
 
