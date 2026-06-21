@@ -191,7 +191,7 @@ export default function Home() {
 <div className="space-y-0">
 
 {/* VOLTAGE */}
-<div className="group grid grid-cols-1 md:grid-cols-[64px_1fr_180px] items-center border-b border-cyan-500/10 py-1 sm:py-2 relative gap-4 transition-all duration-300 hover:border-cyan-400/30">
+<div className="group grid grid-cols-1 md:grid-cols-[64px_1fr_180px] items-center border-b border-cyan-500/10 py-0 sm:py-2 relative gap-4 transition-all duration-300 hover:border-cyan-400/30">
 
   <div className="flex justify-center">
     <Zap
@@ -223,7 +223,7 @@ export default function Home() {
 </div>
 
 {/* AMPERAGE */}
-<div className="group grid grid-cols-1 md:grid-cols-[64px_1fr_180px] items-center border-b border-cyan-500/10 py-1 sm:py-2 relative gap-4 transition-all duration-300 hover:border-cyan-400/30">
+<div className="group grid grid-cols-1 md:grid-cols-[64px_1fr_180px] items-center border-b border-cyan-500/10 py-0 sm:py-2 relative gap-4 transition-all duration-300 hover:border-cyan-400/30">
 
   <div className="flex justify-center">
     <Activity
@@ -255,7 +255,7 @@ export default function Home() {
 </div>
 
 {/* SPEED */}
-<div className="group grid grid-cols-1 md:grid-cols-[64px_1fr_180px] items-center border-b border-cyan-500/10 py-1 sm:py-2 relative gap-4 transition-all duration-300 hover:border-cyan-400/30">
+<div className="group grid grid-cols-1 md:grid-cols-[64px_1fr_180px] items-center border-b border-cyan-500/10 py-0 sm:py-2 relative gap-4 transition-all duration-300 hover:border-cyan-400/30">
 
   <div className="flex justify-center">
     <Gauge
@@ -287,7 +287,7 @@ export default function Home() {
 </div>
 
 {/* PROCESS */}
-<div className="group grid grid-cols-1 md:grid-cols-[64px_1fr_180px] items-center border-b border-cyan-500/10 py-1 sm:py-2 relative gap-4 transition-all duration-300 hover:border-cyan-400/30">
+<div className="group grid grid-cols-1 md:grid-cols-[64px_1fr_180px] items-center border-b border-cyan-500/10 py-0 sm:py-2 relative gap-4 transition-all duration-300 hover:border-cyan-400/30">
 
   <div className="flex justify-center">
   <Flame
@@ -386,7 +386,7 @@ export default function Home() {
   <div className="absolute right-0 bottom-0 w-10 h-10 border-r border-b border-cyan-400/60 rounded-br-xl" />
 
 </div>
-<div className="h-10" />
+<div className="h-4" />
 
               {/* CALCULATE BUTTON */}
               <button
