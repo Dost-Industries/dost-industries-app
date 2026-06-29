@@ -180,12 +180,7 @@ export default function Home() {
                 <div className="absolute bottom-0 right-0 h-8 w-8 rounded-br-xl border-b border-r border-cyan-400/60 sm:h-10 sm:w-10" />
               </div>
 
-              <ResultCard
-                result={result}
-                processName={processName}
-                efficiency={efficiency}
-                useFactor={useFactor}
-              />
+              <ResultCard result={result} />
 
               <PremiumPanel />
 
