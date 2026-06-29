@@ -13,8 +13,7 @@ export default function InputRow({
   children,
 }: InputRowProps) {
   return (
-    <div className="group grid grid-cols-1 md:grid-cols-[64px_1fr_180px] items-center border-b border-cyan-500/10 py-1 sm:py-2 gap-4 relative transition-all duration-300 hover:border-cyan-400/30">
-
+<div className="group grid grid-cols-1 md:grid-cols-[64px_1fr_180px] items-center border-b border-cyan-500/10 py-0 sm:py-2 gap-2 sm:gap-4 relative transition-all duration-300 hover:border-cyan-400/30">
       <div className="flex justify-center">
         <Icon
           size={26}

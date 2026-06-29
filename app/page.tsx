@@ -46,7 +46,7 @@ export default function Home() {
   }, [voltage, amperage, speed, efficiency, useFactor]);
 
   const inputClassName =
-    "h-[46px] sm:h-[54px] w-full rounded-xl border border-cyan-500/20 bg-black/70 px-5 text-xl sm:text-2xl text-white transition-all duration-300 hover:border-cyan-400/40 hover:bg-cyan-400/[0.03] focus:border-cyan-300 focus:outline-none focus:shadow-[0_0_18px_rgba(0,255,255,0.15)]";
+  "h-[42px] sm:h-[54px] w-full rounded-xl border border-cyan-500/20 bg-black/70 px-5 text-xl sm:text-2xl text-white transition-all duration-300 hover:border-cyan-400/40 hover:bg-cyan-400/[0.03] focus:border-cyan-300 focus:outline-none focus:shadow-[0_0_18px_rgba(0,255,255,0.15)]";
 
   const isDisabled =
     !voltage ||
@@ -112,7 +112,7 @@ export default function Home() {
 
             <div className="relative z-10">
               {/* TITLE */}
-              <div className="mb-5 flex items-center justify-center gap-3 sm:mb-8">
+              <div className="mb-3 flex items-center justify-center gap-3 sm:mb-8">
                 <div className="h-px w-8 bg-cyan-500/40 sm:w-10" />
 
                 <h2 className="whitespace-nowrap text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-white sm:text-[1.35rem] sm:tracking-[0.22em]">
