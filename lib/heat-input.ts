@@ -3,7 +3,7 @@ export type WeldingProcess = "MIG / MAG" | "TIG" | "Elektrode" | "SAW";
 export const PROCESS_EFFICIENCY: Record<WeldingProcess, number> = {
   "MIG / MAG": 0.8,
   TIG: 0.6,
-  Elektrode: 0.75,
+  Elektrode: 0.8,
   SAW: 1.0,
 };
 
