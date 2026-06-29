@@ -33,11 +33,15 @@ type ResultCardProps = {
             </p>
           </div>
   
-          <div className="mx-auto mt-4 h-px w-[70%] bg-cyan-500/20" />
-  
-          <p className="mt-3 text-[9px] uppercase tracking-[0.3em] text-zinc-500">
-            Live Calculation
-          </p>
+          <div className="mx-auto mt-5 flex items-center justify-center gap-3">
+
+  <div className="h-px w-16 bg-cyan-500/20" />
+
+  <div className="h-1.5 w-1.5 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(0,255,255,0.8)]" />
+
+  <div className="h-px w-16 bg-cyan-500/20" />
+
+</div>
         </div>
       </div>
     );
