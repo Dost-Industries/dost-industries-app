@@ -46,7 +46,7 @@ export default function Home() {
   }, [voltage, amperage, speed, efficiency, useFactor]);
 
   const inputClassName =
-  "h-[42px] sm:h-[54px] w-full rounded-xl border border-cyan-500/20 bg-black/70 px-5 text-xl sm:text-2xl text-white transition-all duration-300 hover:border-cyan-400/40 hover:bg-cyan-400/[0.03] focus:border-cyan-300 focus:outline-none focus:shadow-[0_0_18px_rgba(0,255,255,0.15)]";
+  "h-[38px] sm:h-[54px] w-full rounded-lg sm:rounded-xl border border-cyan-500/20 bg-black/70 px-3 sm:px-5 text-base sm:text-2xl text-white transition-all duration-300 hover:border-cyan-400/40 hover:bg-cyan-400/[0.03] focus:border-cyan-300 focus:outline-none focus:shadow-[0_0_18px_rgba(0,255,255,0.15)]";
 
   const isDisabled =
     !voltage ||
@@ -183,21 +183,25 @@ export default function Home() {
                 </InputRow>
 
                 <InputRow icon={Settings2} label="K-Factor">
-                  <div className="flex justify-end">
-                    <button
-                      onClick={() => setUseFactor(!useFactor)}
-                      className={`relative h-9 w-18 rounded-full transition-all duration-300 sm:h-10 sm:w-20 ${
-                        useFactor ? "bg-cyan-400/90" : "bg-zinc-800"
-                      }`}
-                    >
-                      <div
-                        className={`absolute top-1 h-7 w-7 rounded-full bg-black transition-all duration-300 sm:h-8 sm:w-8 ${
-                          useFactor ? "left-10 sm:left-11" : "left-1"
-                        }`}
-                      />
-                    </button>
-                  </div>
-                </InputRow>
+  <div className="flex items-center justify-end h-full">
+    <button
+      onClick={() => setUseFactor(!useFactor)}
+      className={`relative h-7 w-14 sm:h-10 sm:w-20 rounded-full transition-all duration-300 ${
+        useFactor
+          ? "bg-cyan-400/90"
+          : "bg-zinc-800"
+      }`}
+    >
+      <div
+        className={`absolute top-0.5 h-6 w-6 sm:top-1 sm:h-8 sm:w-8 rounded-full bg-black transition-all duration-300 ${
+          useFactor
+            ? "left-7 sm:left-11"
+            : "left-0.5 sm:left-1"
+        }`}
+      />
+    </button>
+  </div>
+</InputRow>
               </div>
 
               {/* BOTTOM PANEL CORNERS */}

@@ -13,7 +13,7 @@ export default function InputRow({
   children,
 }: InputRowProps) {
   return (
-<div className="group grid grid-cols-1 md:grid-cols-[64px_1fr_180px] items-center border-b border-cyan-500/10 py-0 sm:py-2 gap-2 sm:gap-4 relative transition-all duration-300 hover:border-cyan-400/30">
+<div className="group grid grid-cols-[40px_1fr_120px] sm:grid-cols-[64px_1fr_180px] items-center border-b border-cyan-500/10 py-2 sm:py-2 gap-2 sm:gap-4 relative transition-all duration-300 hover:border-cyan-400/30">
       <div className="flex justify-center">
         <Icon
           size={26}
@@ -22,7 +22,7 @@ export default function InputRow({
       </div>
 
       <div>
-        <p className="text-[11px] sm:text-sm tracking-[0.28em] uppercase text-zinc-400 mb-2">
+      <p className="text-[10px] sm:text-sm tracking-[0.18em] sm:tracking-[0.28em] uppercase text-zinc-400">
           {label}
         </p>
       </div>
