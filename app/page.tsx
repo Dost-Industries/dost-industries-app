@@ -11,6 +11,8 @@ import {
   Zap,
 } from "lucide-react";
 
+import { useRouter } from "next/navigation";
+import { useAuth } from "../hooks/useAuth";
 import InputRow from "./components/InputRow";
 import ResultCard from "./components/ResultCard";
 import PremiumPanel from "./components/PremiumPanel";
@@ -22,6 +24,8 @@ import {
 } from "../lib/heat-input";
 
 export default function Home() {
+  const router = useRouter();
+  const { user } = useAuth();
   const [voltage, setVoltage] = useState("");
   const [amperage, setAmperage] = useState("");
   const [speed, setSpeed] = useState("");
@@ -70,11 +74,14 @@ export default function Home() {
             </p>
           </div>
 
-          <button className="group flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-500/20 bg-black/40 transition-all hover:border-cyan-400/60 sm:h-14 sm:w-14">
-            <div className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/20 bg-black/40 sm:h-12 sm:w-12">
-              <User size={20} className="text-cyan-300" />
-            </div>
-          </button>
+          <button
+  onClick={() => router.push(user ? "/account" : "/login")}
+  className="group flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-500/20 bg-black/40 transition-all hover:border-cyan-400/60 sm:h-14 sm:w-14"
+>
+  <div className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/20 bg-black/40 sm:h-12 sm:w-12">
+    <User size={20} className="text-cyan-300" />
+  </div>
+</button>
         </div>
       </header>
 
