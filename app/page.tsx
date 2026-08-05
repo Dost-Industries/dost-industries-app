@@ -15,7 +15,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "../hooks/useAuth";
 import InputRow from "./components/InputRow";
 import ResultCard from "./components/ResultCard";
-import PremiumPanel from "./components/PremiumPanel";
+import AdBanner from "./components/AdBanner";
 import MoreTools from "./components/MoreTools";
 import {
   calculateHeatInput,
@@ -189,7 +189,7 @@ export default function Home() {
 
               <ResultCard result={result} />
 
-              <PremiumPanel />
+              <AdBanner />
 
               <MoreTools />
             </div>
