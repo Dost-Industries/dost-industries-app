@@ -25,7 +25,7 @@ import {
 
 export default function Home() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [voltage, setVoltage] = useState("");
   const [amperage, setAmperage] = useState("");
   const [speed, setSpeed] = useState("");
@@ -41,7 +41,13 @@ export default function Home() {
       calculateHeatInput(voltage, amperage, speed, efficiency, useFactor)
     );
   }, [voltage, amperage, speed, efficiency, useFactor]);
-
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#020617] text-cyan-300">
+        Loading...
+      </main>
+    );
+  }
   const inputClassName =
     "h-[38px] sm:h-[54px] w-full rounded-lg sm:rounded-xl border border-cyan-500/20 bg-black/70 px-3 sm:px-5 text-base sm:text-2xl text-white transition-all duration-300 hover:border-cyan-400/40 hover:bg-cyan-400/[0.03] focus:border-cyan-300 focus:outline-none focus:shadow-[0_0_18px_rgba(0,255,255,0.15)]";
 
@@ -70,7 +76,7 @@ export default function Home() {
             </h1>
 
             <p className="mt-1 text-[0.48rem] uppercase tracking-[0.35em] text-zinc-500 sm:text-sm sm:tracking-[0.45em]">
-              ADVANCED WELDING SOFTWARE
+              Digital Welding & Engineering Tools
             </p>
           </div>
 

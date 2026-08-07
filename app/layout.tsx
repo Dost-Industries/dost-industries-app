@@ -5,7 +5,7 @@ import { AuthProvider } from "../contexts/AuthContext";
 
 export const metadata: Metadata = {
   title: "DOST Industries",
-  description: "Advanced welding software for professional welders.",
+  description: "Digital Welding & Engineering Tools",
 };
 
 export default function RootLayout({

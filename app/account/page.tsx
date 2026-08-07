@@ -1,19 +1,112 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { FirebaseError } from "firebase/app";
 import { useRouter } from "next/navigation";
-import { logoutUser } from "../../firebase/auth";
+
+import {
+  deleteCurrentUser,
+  logoutUser,
+  reauthenticateCurrentUser,
+} from "../../firebase/auth";
+import { deleteUserProfile } from "../../firebase/firestore";
 import { useAuth } from "../../hooks/useAuth";
 
 export default function AccountPage() {
   const router = useRouter();
   const { user, profile, loading } = useAuth();
 
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/login");
+    }
+  }, [loading, router, user]);
+
   async function handleLogout() {
     await logoutUser();
-    router.push("/login");
+    router.replace("/login");
   }
 
-  if (loading) {
+  function openDeleteDialog() {
+    setPassword("");
+    setConfirmation("");
+    setDeleteError("");
+    setShowDeleteDialog(true);
+  }
+
+  function closeDeleteDialog() {
+    if (deleting) {
+      return;
+    }
+
+    setShowDeleteDialog(false);
+    setPassword("");
+    setConfirmation("");
+    setDeleteError("");
+  }
+
+  async function handleDeleteAccount() {
+    if (!user || confirmation !== "DELETE" || !password) {
+      return;
+    }
+
+    setDeleting(true);
+    setDeleteError("");
+
+    try {
+      await reauthenticateCurrentUser(password);
+      await deleteUserProfile(user.uid);
+      await deleteCurrentUser();
+
+      router.replace("/");
+      router.refresh();
+    } catch (error) {
+      if (error instanceof FirebaseError) {
+        switch (error.code) {
+          case "auth/invalid-credential":
+          case "auth/wrong-password":
+            setDeleteError("The password is incorrect.");
+            break;
+          case "auth/too-many-requests":
+            setDeleteError(
+              "Too many attempts. Wait a moment and try again."
+            );
+            break;
+          case "auth/requires-recent-login":
+            setDeleteError(
+              "Please log out, log in again and retry the deletion."
+            );
+            break;
+          case "permission-denied":
+          case "firestore/permission-denied":
+            setDeleteError(
+              "The account data could not be deleted because Firestore denied access."
+            );
+            break;
+          default:
+            setDeleteError(
+              "The account could not be deleted. Please try again."
+            );
+        }
+      } else {
+        setDeleteError(
+          "The account could not be deleted. Please try again."
+        );
+      }
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const deletionConfirmed = confirmation === "DELETE" && password.length > 0;
+
+  if (loading || !user) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#020617] text-cyan-300">
         Loading account...
@@ -21,100 +114,211 @@ export default function AccountPage() {
     );
   }
 
-  if (!user) {
-    router.push("/login");
-    return null;
-  }
-
   return (
-    <main className="min-h-screen bg-[#020617] px-4 py-8 text-white">
-      <div className="mx-auto max-w-3xl">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-black uppercase italic tracking-[0.35em]">
+    <main className="relative min-h-screen overflow-hidden bg-[#020617] px-4 py-8 text-white sm:px-6 sm:py-12">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(0,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(0,255,255,0.04)_1px,transparent_1px)] bg-[size:48px_48px]" />
+        <div className="absolute left-1/2 top-[-280px] h-[850px] w-[850px] -translate-x-1/2 rounded-full bg-cyan-500/10 blur-3xl" />
+        <div className="absolute bottom-[-220px] right-[-160px] h-[520px] w-[520px] rounded-full bg-cyan-400/10 blur-3xl" />
+      </div>
+
+      <div className="relative z-10 mx-auto max-w-4xl">
+        <header className="mb-8 text-center sm:mb-10">
+          <h1 className="text-2xl font-black uppercase italic tracking-[0.24em] sm:text-4xl sm:tracking-[0.35em]">
             <span className="text-white">DOST</span>{" "}
-            <span className="text-cyan-400">INDUSTRIES</span>
+            <span className="text-cyan-400 drop-shadow-[0_0_18px_rgba(0,255,255,0.65)]">
+              INDUSTRIES
+            </span>
           </h1>
 
-          <p className="mt-2 text-xs uppercase tracking-[0.35em] text-zinc-500">
+          <p className="mt-2 text-[0.62rem] uppercase tracking-[0.38em] text-zinc-500 sm:text-xs">
             Account Hub
           </p>
-        </div>
+        </header>
 
-        <div className="rounded-[28px] border border-cyan-500/25 bg-black/60 p-6 shadow-[0_0_60px_rgba(0,255,255,0.10)] backdrop-blur-xl">
-          <p className="mb-2 text-xs uppercase tracking-[0.3em] text-cyan-400">
-            My Account
-          </p>
+        <section className="relative overflow-hidden rounded-[28px] border border-cyan-500/25 bg-black/55 p-5 shadow-[0_0_60px_rgba(0,255,255,0.10)] backdrop-blur-xl sm:p-8">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(0,255,255,0.08),transparent_58%)]" />
 
-          <h2 className="text-2xl font-semibold">
-            {profile?.name || user.email}
-          </h2>
+          <div className="relative z-10">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-xs uppercase tracking-[0.3em] text-cyan-400">
+                  My Account
+                </p>
 
-          <p className="mt-2 text-zinc-400">{user.email}</p>
+                <h2 className="mt-3 truncate text-2xl font-semibold sm:text-3xl">
+                  {profile?.name || user.email}
+                </h2>
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <div className="rounded-2xl border border-cyan-500/20 bg-cyan-400/5 p-4">
-              <p className="text-xs uppercase tracking-[0.25em] text-zinc-500">
-                Plan
-              </p>
-              <p className="mt-2 text-xl font-semibold text-cyan-300">
-                {profile?.plan || "FREE"}
-              </p>
+                <p className="mt-2 truncate text-sm text-zinc-400 sm:text-base">
+                  {user.email}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={openDeleteDialog}
+                className="shrink-0 rounded-lg border border-cyan-500/30 bg-cyan-500/5 px-3 py-2 text-[0.58rem] font-bold uppercase tracking-[0.16em] text-cyan-300 transition hover:border-cyan-400/60 hover:bg-cyan-500/10 sm:px-4 sm:text-[0.65rem] sm:tracking-[0.22em]"
+              >
+                Delete Account
+              </button>
             </div>
 
-            <div className="rounded-2xl border border-cyan-500/20 bg-cyan-400/5 p-4">
-              <p className="text-xs uppercase tracking-[0.25em] text-zinc-500">
-                Modules
-              </p>
-              <p className="mt-2 text-xl font-semibold text-cyan-300">
-                Heat Input
-              </p>
+            <div className="mt-7 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-2xl border border-cyan-500/20 bg-cyan-400/5 p-5">
+                <p className="text-xs uppercase tracking-[0.25em] text-zinc-500">
+                  Plan
+                </p>
+                <p className="mt-2 text-2xl font-semibold text-cyan-300">
+                  {profile?.plan || "FREE"}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-cyan-500/20 bg-cyan-400/5 p-5">
+                <p className="text-xs uppercase tracking-[0.25em] text-zinc-500">
+                  Modules
+                </p>
+                <p className="mt-2 text-2xl font-semibold text-cyan-300">
+                  Heat Input
+                </p>
+              </div>
             </div>
-          </div>
 
-          <div className="mt-6 rounded-2xl border border-cyan-400/25 bg-black/50 p-5">
-            <p className="text-xs uppercase tracking-[0.3em] text-cyan-400">
-              Premium
-            </p>
+            <div className="mt-6 rounded-2xl border border-cyan-400/25 bg-black/45 p-5 sm:p-6">
+              <p className="text-xs uppercase tracking-[0.3em] text-cyan-400">
+                Premium
+              </p>
 
-            <h3 className="mt-3 text-xl font-semibold">
-              Remove advertisements
-            </h3>
+              <h3 className="mt-3 text-xl font-semibold">
+                Remove advertisements
+              </h3>
 
-            <p className="mt-2 text-sm text-zinc-400">
-              Upgrade your workspace and support future DOST Industries modules.
-            </p>
+              <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+                Upgrade your workspace and support future DOST Industries modules.
+              </p>
 
-            <button className="mt-4 rounded-xl border border-cyan-400/40 bg-cyan-400/10 px-5 py-3 text-sm font-bold uppercase tracking-[0.2em] text-cyan-300">
-              Upgrade Soon
+              <button
+                type="button"
+                className="mt-5 rounded-xl border border-cyan-400/40 bg-cyan-400/10 px-5 py-3 text-sm font-bold uppercase tracking-[0.2em] text-cyan-300 transition hover:bg-cyan-400/15"
+              >
+                Upgrade Soon
+              </button>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-cyan-400/20 bg-black/40 p-5 sm:p-6">
+              <p className="text-xs uppercase tracking-[0.3em] text-cyan-400">
+                Business
+              </p>
+
+              <h3 className="mt-3 text-xl font-semibold">
+                Equip your welding team
+              </h3>
+
+              <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+                Business licenses and module access for professional welding companies.
+              </p>
+
+              <button
+                type="button"
+                className="mt-5 rounded-xl border border-cyan-500/30 bg-cyan-500/5 px-5 py-3 text-sm font-bold uppercase tracking-[0.2em] text-cyan-300 transition hover:bg-cyan-500/10"
+              >
+                Coming Soon
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="mt-8 w-full rounded-xl border border-cyan-500/35 bg-cyan-500/10 py-4 text-sm font-bold uppercase tracking-[0.25em] text-cyan-300 transition hover:border-cyan-400/60 hover:bg-cyan-500/15"
+            >
+              Logout
             </button>
           </div>
-
-          <div className="mt-6 rounded-2xl border border-cyan-400/20 bg-black/40 p-5">
-            <p className="text-xs uppercase tracking-[0.3em] text-cyan-400">
-              Business
-            </p>
-
-            <h3 className="mt-3 text-xl font-semibold">
-              Equip your welding team
-            </h3>
-
-            <p className="mt-2 text-sm text-zinc-400">
-              Business licenses and module access for professional welding companies.
-            </p>
-
-            <button className="mt-4 rounded-xl border border-zinc-700 px-5 py-3 text-sm font-bold uppercase tracking-[0.2em] text-zinc-400">
-              Coming Soon
-            </button>
-          </div>
-
-          <button
-            onClick={handleLogout}
-            className="mt-8 w-full rounded-xl border border-red-500/30 bg-red-500/10 py-4 text-sm font-bold uppercase tracking-[0.25em] text-red-300"
-          >
-            Logout
-          </button>
-        </div>
+        </section>
       </div>
+
+      {showDeleteDialog && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-account-title"
+        >
+          <div className="w-full max-w-lg rounded-[24px] border border-red-500/35 bg-[#020617] p-6 shadow-[0_0_70px_rgba(239,68,68,0.18)] sm:p-8">
+            <p className="text-xs font-bold uppercase tracking-[0.3em] text-red-400">
+              Permanent action
+            </p>
+
+            <h2
+              id="delete-account-title"
+              className="mt-3 text-2xl font-semibold text-white"
+            >
+              Delete your account?
+            </h2>
+
+            <p className="mt-3 text-sm leading-relaxed text-zinc-400">
+              Your account and saved profile will be permanently deleted. This
+              cannot be undone.
+            </p>
+
+            <label className="mt-6 block">
+              <span className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-400">
+                Current password
+              </span>
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+                disabled={deleting}
+                className="mt-2 w-full rounded-xl border border-cyan-500/25 bg-black/50 px-4 py-3 text-white outline-none transition placeholder:text-zinc-700 focus:border-cyan-400/70 disabled:cursor-not-allowed disabled:opacity-60"
+                placeholder="Enter your password"
+              />
+            </label>
+
+            <label className="mt-4 block">
+              <span className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-400">
+                Type DELETE to confirm
+              </span>
+              <input
+                type="text"
+                value={confirmation}
+                onChange={(event) => setConfirmation(event.target.value)}
+                autoComplete="off"
+                disabled={deleting}
+                className="mt-2 w-full rounded-xl border border-cyan-500/25 bg-black/50 px-4 py-3 text-white outline-none transition placeholder:text-zinc-700 focus:border-cyan-400/70 disabled:cursor-not-allowed disabled:opacity-60"
+                placeholder="DELETE"
+              />
+            </label>
+
+            {deleteError && (
+              <p className="mt-4 rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                {deleteError}
+              </p>
+            )}
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={closeDeleteDialog}
+                disabled={deleting}
+                className="rounded-xl border border-zinc-700 bg-white/5 px-5 py-3 text-sm font-bold uppercase tracking-[0.18em] text-zinc-300 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDeleteAccount}
+                disabled={!deletionConfirmed || deleting}
+                className="rounded-xl border border-red-500/40 bg-red-500/10 px-5 py-3 text-sm font-bold uppercase tracking-[0.18em] text-red-300 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                {deleting ? "Deleting..." : "Delete permanently"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

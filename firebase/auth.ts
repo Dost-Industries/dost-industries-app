@@ -1,6 +1,9 @@
 import {
   createUserWithEmailAndPassword,
+  deleteUser,
+  EmailAuthProvider,
   onAuthStateChanged,
+  reauthenticateWithCredential,
   reload,
   sendEmailVerification,
   sendPasswordResetEmail,
@@ -71,4 +74,31 @@ export async function reloadCurrentUser() {
   await reload(auth.currentUser);
 
   return auth.currentUser;
+}
+
+export async function reauthenticateCurrentUser(
+  password: string
+) {
+  const user = auth.currentUser;
+
+  if (!user || !user.email) {
+    throw new Error("No authenticated user.");
+  }
+
+  const credential = EmailAuthProvider.credential(
+    user.email,
+    password
+  );
+
+  await reauthenticateWithCredential(user, credential);
+}
+
+export async function deleteCurrentUser() {
+  const user = auth.currentUser;
+
+  if (!user) {
+    throw new Error("No authenticated user.");
+  }
+
+  await deleteUser(user);
 }
