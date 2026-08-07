@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -8,6 +8,17 @@ import {
   logoutUser,
   resendVerificationEmail,
 } from "../../firebase/auth";
+
+import { ERROR_MESSAGES } from "../../lib/errors/errorMessages";
+import { mapFirebaseError } from "../../lib/errors/firebaseErrorMapper";
+
+type RateLimitResponse = {
+  allowed: boolean;
+  remainingAttempts: number;
+  retryAfterSeconds: number;
+};
+
+type RateLimitAction = "check" | "failure" | "success";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -22,8 +33,131 @@ export default function LoginPage() {
   const [showRegisterSuggestion, setShowRegisterSuggestion] =
     useState(false);
 
-  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
+  const [rateLimitSeconds, setRateLimitSeconds] = useState(0);
+
+  const isRateLimited = rateLimitSeconds > 0;
+
+  useEffect(() => {
+    if (rateLimitSeconds <= 0) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setRateLimitSeconds((current) => {
+        if (current <= 1) {
+          window.clearInterval(timer);
+          return 0;
+        }
+
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [rateLimitSeconds]);
+
+  function normalizeEmail(value: string) {
+    return value.trim().toLowerCase();
+  }
+
+  async function callRateLimiter(
+    action: RateLimitAction,
+    identifier: string,
+    idToken?: string
+  ): Promise<RateLimitResponse> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    if (idToken) {
+      headers.Authorization = `Bearer ${idToken}`;
+    }
+
+    const response = await fetch("/api/security/login-attempts", {
+      method: "POST",
+      headers,
+      cache: "no-store",
+      body: JSON.stringify({
+        action,
+        identifier,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("RATE_LIMIT_SERVICE_ERROR");
+    }
+
+    return (await response.json()) as RateLimitResponse;
+  }
+
+  async function checkRateLimit(identifier: string) {
+    const result = await callRateLimiter(
+      "check",
+      identifier
+    );
+
+    if (!result.allowed) {
+      setRateLimitSeconds(result.retryAfterSeconds);
+
+      setError(
+        `Too many login attempts. Try again in ${result.retryAfterSeconds} seconds.`
+      );
+
+      return false;
+    }
+
+    return true;
+  }
+
+  async function registerFailedLogin(identifier: string) {
+    try {
+      const result = await callRateLimiter(
+        "failure",
+        identifier
+      );
+
+      if (!result.allowed && result.retryAfterSeconds > 0) {
+        setRateLimitSeconds(result.retryAfterSeconds);
+
+        setError(
+          `Too many login attempts. Try again in ${result.retryAfterSeconds} seconds.`
+        );
+
+        return true;
+      }
+    } catch {
+      // Keep the original authentication error visible.
+    }
+
+    return false;
+  }
+
+  async function clearFailedLogins(
+    identifier: string,
+    idToken: string
+  ) {
+    try {
+      await callRateLimiter(
+        "success",
+        identifier,
+        idToken
+      );
+    } catch {
+      // Successful authentication must not fail because
+      // rate-limit cleanup is temporarily unavailable.
+    }
+  }
+
+  async function handleLogin(
+    e: FormEvent<HTMLFormElement>
+  ) {
     e.preventDefault();
+
+    if (loading || isRateLimited) {
+      return;
+    }
+
+    const normalizedEmail = normalizeEmail(email);
 
     setLoading(true);
     setError("");
@@ -31,22 +165,45 @@ export default function LoginPage() {
     setShowRegisterSuggestion(false);
 
     try {
-      const user = await loginWithEmail(email.trim(), password);
+      const allowed = await checkRateLimit(
+        normalizedEmail
+      );
+
+      if (!allowed) {
+        return;
+      }
+
+      const user = await loginWithEmail(
+        normalizedEmail,
+        password
+      );
+
+      const idToken = await user.getIdToken();
+
+      await clearFailedLogins(
+        normalizedEmail,
+        idToken
+      );
 
       if (!user.emailVerified) {
         await logoutUser();
 
         setVerificationRequired(true);
-        setError(
-          "Please verify your email address before logging in."
-        );
+        setError(ERROR_MESSAGES.EMAIL_NOT_VERIFIED);
 
         return;
       }
 
       router.push("/");
-    } catch {
-      setError("Incorrect email address or password.");
+    } catch (caughtError) {
+      const blocked = await registerFailedLogin(
+        normalizedEmail
+      );
+
+      if (!blocked) {
+        setError(mapFirebaseError(caughtError));
+      }
+
       setShowRegisterSuggestion(true);
     } finally {
       setLoading(false);
@@ -54,27 +211,61 @@ export default function LoginPage() {
   }
 
   async function handleResendVerification() {
+    if (loading || isRateLimited) {
+      return;
+    }
+
+    const normalizedEmail = normalizeEmail(email);
+
     setLoading(true);
+    setError("");
+    setShowRegisterSuggestion(false);
 
     try {
-      await loginWithEmail(email.trim(), password);
+      const allowed = await checkRateLimit(
+        normalizedEmail
+      );
+
+      if (!allowed) {
+        return;
+      }
+
+      const user = await loginWithEmail(
+        normalizedEmail,
+        password
+      );
+
+      const idToken = await user.getIdToken();
+
+      await clearFailedLogins(
+        normalizedEmail,
+        idToken
+      );
+
       await resendVerificationEmail();
       await logoutUser();
 
-      setError("");
       setVerificationRequired(false);
 
       alert("A new verification email has been sent.");
-    } catch {
-      alert("Unable to resend verification email.");
+    } catch (caughtError) {
+      const blocked = await registerFailedLogin(
+        normalizedEmail
+      );
+
+      if (!blocked) {
+        setError(mapFirebaseError(caughtError));
+      }
     } finally {
       setLoading(false);
     }
   }
 
   function goToRegister() {
-    const registerUrl = email.trim()
-      ? `/register?email=${encodeURIComponent(email.trim())}`
+    const normalizedEmail = normalizeEmail(email);
+
+    const registerUrl = normalizedEmail
+      ? `/register?email=${encodeURIComponent(normalizedEmail)}`
       : "/register";
 
     router.push(registerUrl);
@@ -114,7 +305,8 @@ export default function LoginPage() {
               }}
               autoComplete="email"
               required
-              className="h-14 w-full rounded-xl border border-cyan-500/20 bg-black px-5 text-white outline-none transition placeholder:text-zinc-700 focus:border-cyan-400"
+              disabled={loading}
+              className="h-14 w-full rounded-xl border border-cyan-500/20 bg-black px-5 text-white outline-none transition placeholder:text-zinc-700 focus:border-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
             />
           </div>
 
@@ -138,17 +330,29 @@ export default function LoginPage() {
               }}
               autoComplete="current-password"
               required
-              className="h-14 w-full rounded-xl border border-cyan-500/20 bg-black px-5 text-white outline-none transition placeholder:text-zinc-700 focus:border-cyan-400"
+              disabled={loading}
+              className="h-14 w-full rounded-xl border border-cyan-500/20 bg-black px-5 text-white outline-none transition placeholder:text-zinc-700 focus:border-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
             />
           </div>
 
-          {error && (
-            <div className="rounded-xl border border-red-500/25 bg-red-500/10 p-4">
-              <p className="text-sm text-red-300">{error}</p>
+          {isRateLimited && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+              <p className="text-sm font-medium text-amber-300">
+                Login temporarily blocked. Try again in{" "}
+                {rateLimitSeconds} seconds.
+              </p>
             </div>
           )}
 
-          {verificationRequired && (
+          {error && !isRateLimited && (
+            <div className="rounded-xl border border-red-500/25 bg-red-500/10 p-4">
+              <p className="text-sm text-red-300">
+                {error}
+              </p>
+            </div>
+          )}
+
+          {verificationRequired && !isRateLimited && (
             <button
               type="button"
               onClick={handleResendVerification}
@@ -159,28 +363,34 @@ export default function LoginPage() {
             </button>
           )}
 
-          {showRegisterSuggestion && !verificationRequired && (
-            <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/5 p-4">
-              <p className="mb-3 text-sm text-zinc-400">
-                Does this account not exist yet?
-              </p>
+          {showRegisterSuggestion &&
+            !verificationRequired &&
+            !isRateLimited && (
+              <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/5 p-4">
+                <p className="mb-3 text-sm text-zinc-400">
+                  Does this account not exist yet?
+                </p>
 
-              <button
-                type="button"
-                onClick={goToRegister}
-                className="w-full rounded-xl border border-cyan-400/40 bg-cyan-400/10 py-3 text-sm font-bold uppercase tracking-[0.18em] text-cyan-300 transition hover:bg-cyan-400/20"
-              >
-                Create account
-              </button>
-            </div>
-          )}
+                <button
+                  type="button"
+                  onClick={goToRegister}
+                  className="w-full rounded-xl border border-cyan-400/40 bg-cyan-400/10 py-3 text-sm font-bold uppercase tracking-[0.18em] text-cyan-300 transition hover:bg-cyan-400/20"
+                >
+                  Create account
+                </button>
+              </div>
+            )}
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || isRateLimited}
             className="h-14 w-full rounded-xl bg-cyan-500 font-bold tracking-[0.2em] text-black transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? "LOGGING IN..." : "LOGIN"}
+            {isRateLimited
+              ? `TRY AGAIN IN ${rateLimitSeconds}s`
+              : loading
+                ? "LOGGING IN..."
+                : "LOGIN"}
           </button>
         </form>
 
