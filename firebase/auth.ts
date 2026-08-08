@@ -14,25 +14,32 @@ import {
 
 import { auth } from "./config";
 
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
 export function listenToAuthChanges(
   callback: (user: User | null) => void
 ) {
   return onAuthStateChanged(auth, callback);
 }
 
+export function getCurrentUser(): User | null {
+  return auth.currentUser;
+}
+
 export async function registerWithEmail(
   email: string,
   password: string
 ) {
-  const credential = await createUserWithEmailAndPassword(
-    auth,
-    email,
-    password
-  );
+  const credential =
+    await createUserWithEmailAndPassword(
+      auth,
+      normalizeEmail(email),
+      password
+    );
 
-  if (credential.user) {
-    await sendEmailVerification(credential.user);
-  }
+  await sendEmailVerification(credential.user);
 
   return credential.user;
 }
@@ -41,13 +48,31 @@ export async function loginWithEmail(
   email: string,
   password: string
 ) {
-  const credential = await signInWithEmailAndPassword(
-    auth,
-    email,
-    password
-  );
+  const credential =
+    await signInWithEmailAndPassword(
+      auth,
+      normalizeEmail(email),
+      password
+    );
 
   return credential.user;
+}
+
+export async function loginVerifiedWithEmail(
+  email: string,
+  password: string
+) {
+  const user = await loginWithEmail(email, password);
+
+  await reload(user);
+
+  if (!user.emailVerified) {
+    await signOut(auth);
+
+    throw new Error("EMAIL_NOT_VERIFIED");
+  }
+
+  return user;
 }
 
 export async function logoutUser() {
@@ -55,25 +80,48 @@ export async function logoutUser() {
 }
 
 export async function resetPassword(email: string) {
-  await sendPasswordResetEmail(auth, email);
+  await sendPasswordResetEmail(
+    auth,
+    normalizeEmail(email)
+  );
 }
 
 export async function resendVerificationEmail() {
-  if (!auth.currentUser) {
+  const user = auth.currentUser;
+
+  if (!user) {
     throw new Error("No authenticated user.");
   }
 
-  await sendEmailVerification(auth.currentUser);
+  await reload(user);
+
+  if (user.emailVerified) {
+    return;
+  }
+
+  await sendEmailVerification(user);
 }
 
 export async function reloadCurrentUser() {
-  if (!auth.currentUser) {
+  const user = auth.currentUser;
+
+  if (!user) {
     return null;
   }
 
-  await reload(auth.currentUser);
+  await reload(user);
 
-  return auth.currentUser;
+  return user;
+}
+
+export async function getFreshIdToken(): Promise<string> {
+  const user = auth.currentUser;
+
+  if (!user) {
+    throw new Error("No authenticated user.");
+  }
+
+  return user.getIdToken(true);
 }
 
 export async function reauthenticateCurrentUser(
@@ -86,11 +134,16 @@ export async function reauthenticateCurrentUser(
   }
 
   const credential = EmailAuthProvider.credential(
-    user.email,
+    normalizeEmail(user.email),
     password
   );
 
-  await reauthenticateWithCredential(user, credential);
+  await reauthenticateWithCredential(
+    user,
+    credential
+  );
+
+  await user.getIdToken(true);
 }
 
 export async function deleteCurrentUser() {

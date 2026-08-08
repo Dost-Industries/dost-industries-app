@@ -9,31 +9,77 @@ import {
   logoutUser,
   reauthenticateCurrentUser,
 } from "../../firebase/auth";
-import { deleteUserProfile } from "../../firebase/firestore";
+
+import {
+  deleteUserProfile,
+} from "../../firebase/firestore";
+
 import { useAuth } from "../../hooks/useAuth";
 
 export default function AccountPage() {
   const router = useRouter();
-  const { user, profile, loading } = useAuth();
 
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const {
+    user,
+    profile,
+    loading,
+    isAuthenticated,
+    isVerified,
+  } = useAuth();
+
+  const [showDeleteDialog, setShowDeleteDialog] =
+    useState(false);
+
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (loading) {
+      return;
+    }
+
+    if (
+      !user ||
+      !isAuthenticated ||
+      !isVerified ||
+      !user.emailVerified
+    ) {
       router.replace("/login");
     }
-  }, [loading, router, user]);
+  }, [
+    loading,
+    user,
+    isAuthenticated,
+    isVerified,
+    router,
+  ]);
 
   async function handleLogout() {
-    await logoutUser();
-    router.replace("/login");
+    if (loggingOut) {
+      return;
+    }
+
+    setLoggingOut(true);
+
+    try {
+      await logoutUser();
+
+      router.replace("/login");
+      router.refresh();
+    } catch (error) {
+      console.error("Logout failed:", error);
+      setLoggingOut(false);
+    }
   }
 
   function openDeleteDialog() {
+    if (deleting) {
+      return;
+    }
+
     setPassword("");
     setConfirmation("");
     setDeleteError("");
@@ -52,7 +98,13 @@ export default function AccountPage() {
   }
 
   async function handleDeleteAccount() {
-    if (!user || confirmation !== "DELETE" || !password) {
+    if (
+      deleting ||
+      !user ||
+      !user.emailVerified ||
+      confirmation !== "DELETE" ||
+      password.length === 0
+    ) {
       return;
     }
 
@@ -61,34 +113,42 @@ export default function AccountPage() {
 
     try {
       await reauthenticateCurrentUser(password);
+
       await deleteUserProfile(user.uid);
+
       await deleteCurrentUser();
 
-      router.replace("/");
+      router.replace("/login");
       router.refresh();
     } catch (error) {
       if (error instanceof FirebaseError) {
         switch (error.code) {
           case "auth/invalid-credential":
           case "auth/wrong-password":
-            setDeleteError("The password is incorrect.");
+            setDeleteError(
+              "The password is incorrect."
+            );
             break;
+
           case "auth/too-many-requests":
             setDeleteError(
               "Too many attempts. Wait a moment and try again."
             );
             break;
+
           case "auth/requires-recent-login":
             setDeleteError(
               "Please log out, log in again and retry the deletion."
             );
             break;
+
           case "permission-denied":
           case "firestore/permission-denied":
             setDeleteError(
               "The account data could not be deleted because Firestore denied access."
             );
             break;
+
           default:
             setDeleteError(
               "The account could not be deleted. Please try again."
@@ -104,9 +164,17 @@ export default function AccountPage() {
     }
   }
 
-  const deletionConfirmed = confirmation === "DELETE" && password.length > 0;
+  const deletionConfirmed =
+    confirmation === "DELETE" &&
+    password.length > 0;
 
-  if (loading || !user) {
+  if (
+    loading ||
+    !user ||
+    !isAuthenticated ||
+    !isVerified ||
+    !user.emailVerified
+  ) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#020617] text-cyan-300">
         Loading account...
@@ -118,14 +186,18 @@ export default function AccountPage() {
     <main className="relative min-h-screen overflow-hidden bg-[#020617] px-4 py-8 text-white sm:px-6 sm:py-12">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(0,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(0,255,255,0.04)_1px,transparent_1px)] bg-[size:48px_48px]" />
+
         <div className="absolute left-1/2 top-[-280px] h-[850px] w-[850px] -translate-x-1/2 rounded-full bg-cyan-500/10 blur-3xl" />
+
         <div className="absolute bottom-[-220px] right-[-160px] h-[520px] w-[520px] rounded-full bg-cyan-400/10 blur-3xl" />
       </div>
 
       <div className="relative z-10 mx-auto max-w-4xl">
         <header className="mb-8 text-center sm:mb-10">
           <h1 className="text-2xl font-black uppercase italic tracking-[0.24em] sm:text-4xl sm:tracking-[0.35em]">
-            <span className="text-white">DOST</span>{" "}
+            <span className="text-white">
+              DOST
+            </span>{" "}
             <span className="text-cyan-400 drop-shadow-[0_0_18px_rgba(0,255,255,0.65)]">
               INDUSTRIES
             </span>
@@ -158,7 +230,8 @@ export default function AccountPage() {
               <button
                 type="button"
                 onClick={openDeleteDialog}
-                className="shrink-0 rounded-lg border border-cyan-500/30 bg-cyan-500/5 px-3 py-2 text-[0.58rem] font-bold uppercase tracking-[0.16em] text-cyan-300 transition hover:border-cyan-400/60 hover:bg-cyan-500/10 sm:px-4 sm:text-[0.65rem] sm:tracking-[0.22em]"
+                disabled={deleting || loggingOut}
+                className="shrink-0 rounded-lg border border-cyan-500/30 bg-cyan-500/5 px-3 py-2 text-[0.58rem] font-bold uppercase tracking-[0.16em] text-cyan-300 transition hover:border-cyan-400/60 hover:bg-cyan-500/10 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:text-[0.65rem] sm:tracking-[0.22em]"
               >
                 Delete Account
               </button>
@@ -169,6 +242,7 @@ export default function AccountPage() {
                 <p className="text-xs uppercase tracking-[0.25em] text-zinc-500">
                   Plan
                 </p>
+
                 <p className="mt-2 text-2xl font-semibold text-cyan-300">
                   {profile?.plan || "FREE"}
                 </p>
@@ -178,6 +252,7 @@ export default function AccountPage() {
                 <p className="text-xs uppercase tracking-[0.25em] text-zinc-500">
                   Modules
                 </p>
+
                 <p className="mt-2 text-2xl font-semibold text-cyan-300">
                   Heat Input
                 </p>
@@ -229,9 +304,12 @@ export default function AccountPage() {
             <button
               type="button"
               onClick={handleLogout}
-              className="mt-8 w-full rounded-xl border border-cyan-500/35 bg-cyan-500/10 py-4 text-sm font-bold uppercase tracking-[0.25em] text-cyan-300 transition hover:border-cyan-400/60 hover:bg-cyan-500/15"
+              disabled={loggingOut || deleting}
+              className="mt-8 w-full rounded-xl border border-cyan-500/35 bg-cyan-500/10 py-4 text-sm font-bold uppercase tracking-[0.25em] text-cyan-300 transition hover:border-cyan-400/60 hover:bg-cyan-500/15 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Logout
+              {loggingOut
+                ? "Logging out..."
+                : "Logout"}
             </button>
           </div>
         </section>
@@ -257,18 +335,21 @@ export default function AccountPage() {
             </h2>
 
             <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-              Your account and saved profile will be permanently deleted. This
-              cannot be undone.
+              Your account and saved profile will be
+              permanently deleted. This cannot be undone.
             </p>
 
             <label className="mt-6 block">
               <span className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-400">
                 Current password
               </span>
+
               <input
                 type="password"
                 value={password}
-                onChange={(event) => setPassword(event.target.value)}
+                onChange={(event) =>
+                  setPassword(event.target.value)
+                }
                 autoComplete="current-password"
                 disabled={deleting}
                 className="mt-2 w-full rounded-xl border border-cyan-500/25 bg-black/50 px-4 py-3 text-white outline-none transition placeholder:text-zinc-700 focus:border-cyan-400/70 disabled:cursor-not-allowed disabled:opacity-60"
@@ -280,10 +361,13 @@ export default function AccountPage() {
               <span className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-400">
                 Type DELETE to confirm
               </span>
+
               <input
                 type="text"
                 value={confirmation}
-                onChange={(event) => setConfirmation(event.target.value)}
+                onChange={(event) =>
+                  setConfirmation(event.target.value)
+                }
                 autoComplete="off"
                 disabled={deleting}
                 className="mt-2 w-full rounded-xl border border-cyan-500/25 bg-black/50 px-4 py-3 text-white outline-none transition placeholder:text-zinc-700 focus:border-cyan-400/70 disabled:cursor-not-allowed disabled:opacity-60"
@@ -310,10 +394,15 @@ export default function AccountPage() {
               <button
                 type="button"
                 onClick={handleDeleteAccount}
-                disabled={!deletionConfirmed || deleting}
+                disabled={
+                  !deletionConfirmed ||
+                  deleting
+                }
                 className="rounded-xl border border-red-500/40 bg-red-500/10 px-5 py-3 text-sm font-bold uppercase tracking-[0.18em] text-red-300 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-35"
               >
-                {deleting ? "Deleting..." : "Delete permanently"}
+                {deleting
+                  ? "Deleting..."
+                  : "Delete permanently"}
               </button>
             </div>
           </div>
