@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Activity,
   Flame,
@@ -41,26 +41,13 @@ export default function Home() {
     PROCESS_EFFICIENCY["MIG / MAG"]
   );
 
-  const [result, setResult] =
-    useState<number | null>(null);
-
-  useEffect(() => {
-    setResult(
-      calculateHeatInput(
-        voltage,
-        amperage,
-        speed,
-        efficiency,
-        useFactor
-      )
-    );
-  }, [
+  const result = calculateHeatInput(
     voltage,
     amperage,
     speed,
     efficiency,
-    useFactor,
-  ]);
+    useFactor
+  );
 
   if (loading) {
     return (
