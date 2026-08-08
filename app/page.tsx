@@ -17,6 +17,7 @@ import InputRow from "./components/InputRow";
 import ResultCard from "./components/ResultCard";
 import AdBanner from "./components/AdBanner";
 import MoreTools from "./components/MoreTools";
+import NavigationMenu from "./components/NavigationMenu";
 
 import {
   calculateHeatInput,
@@ -27,6 +28,8 @@ import {
 export default function Home() {
   const router = useRouter();
   const { user, loading } = useAuth();
+
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const [voltage, setVoltage] = useState("");
   const [amperage, setAmperage] = useState("");
@@ -78,6 +81,9 @@ export default function Home() {
         <div className="mx-auto flex max-w-5xl items-center justify-between px-2 py-1 sm:px-6 sm:py-2">
           <button
             type="button"
+            onClick={() => setMenuOpen(true)}
+            aria-label="Open navigation menu"
+            aria-expanded={menuOpen}
             className="group flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-500/20 bg-black/40 transition-all hover:border-cyan-400/60 sm:h-14 sm:w-14"
           >
             <div className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/20 bg-black/40 sm:h-12 sm:w-12">
@@ -121,6 +127,12 @@ export default function Home() {
           </button>
         </div>
       </header>
+
+      <NavigationMenu
+        open={menuOpen}
+        isAuthenticated={Boolean(user)}
+        onClose={() => setMenuOpen(false)}
+      />
 
       <section className="relative z-10 mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-10">
         <div className="mx-auto max-w-5xl">
