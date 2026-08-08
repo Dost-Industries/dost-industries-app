@@ -25,6 +25,11 @@ import {
   type WeldingProcess,
 } from "../lib/heat-input";
 
+import {
+  hasHeatInputValidationErrors,
+  validateHeatInputFields,
+} from "../lib/heat-input-validation";
+
 export default function Home() {
   const router = useRouter();
   const { user, loading } = useAuth();
@@ -44,13 +49,24 @@ export default function Home() {
     PROCESS_EFFICIENCY["MIG / MAG"]
   );
 
-  const result = calculateHeatInput(
+  const validationErrors = validateHeatInputFields(
     voltage,
     amperage,
-    speed,
-    efficiency,
-    useFactor
+    speed
   );
+
+  const hasValidationErrors =
+    hasHeatInputValidationErrors(validationErrors);
+
+  const result = hasValidationErrors
+    ? null
+    : calculateHeatInput(
+        voltage,
+        amperage,
+        speed,
+        efficiency,
+        useFactor
+      );
 
   if (loading) {
     return (
@@ -70,6 +86,9 @@ export default function Home() {
 
   const inputClassName =
     "h-[38px] sm:h-[54px] w-full rounded-lg sm:rounded-xl border border-cyan-500/20 bg-black/70 px-3 sm:px-5 text-base sm:text-2xl text-white transition-all duration-300 hover:border-cyan-400/40 hover:bg-cyan-400/[0.03] focus:border-cyan-300 focus:outline-none focus:shadow-[0_0_18px_rgba(0,255,255,0.15)]";
+
+  const invalidInputClassName =
+    "border-red-500/70 focus:border-red-400 focus:shadow-[0_0_18px_rgba(239,68,68,0.15)]";
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#020617] text-white">
@@ -166,51 +185,96 @@ export default function Home() {
                   icon={Zap}
                   label="Voltage (V)"
                 >
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="0.01"
-                    value={voltage}
-                    onChange={(e) =>
-                      setVoltage(e.target.value)
-                    }
-                    className={inputClassName}
-                  />
+                  <div>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="0.01"
+                      value={voltage}
+                      onChange={(e) =>
+                        setVoltage(e.target.value)
+                      }
+                      aria-invalid={
+                        Boolean(validationErrors.voltage)
+                      }
+                      className={`${inputClassName} ${
+                        validationErrors.voltage
+                          ? invalidInputClassName
+                          : ""
+                      }`}
+                    />
+
+                    {validationErrors.voltage && (
+                      <p className="mt-1 text-xs text-red-400">
+                        {validationErrors.voltage}
+                      </p>
+                    )}
+                  </div>
                 </InputRow>
 
                 <InputRow
                   icon={Activity}
                   label="Amperage (A)"
                 >
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="0.01"
-                    value={amperage}
-                    onChange={(e) =>
-                      setAmperage(e.target.value)
-                    }
-                    className={inputClassName}
-                  />
+                  <div>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="0.01"
+                      value={amperage}
+                      onChange={(e) =>
+                        setAmperage(e.target.value)
+                      }
+                      aria-invalid={
+                        Boolean(validationErrors.amperage)
+                      }
+                      className={`${inputClassName} ${
+                        validationErrors.amperage
+                          ? invalidInputClassName
+                          : ""
+                      }`}
+                    />
+
+                    {validationErrors.amperage && (
+                      <p className="mt-1 text-xs text-red-400">
+                        {validationErrors.amperage}
+                      </p>
+                    )}
+                  </div>
                 </InputRow>
 
                 <InputRow
                   icon={Gauge}
                   label="Travel Speed (mm/min)"
                 >
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="0.01"
-                    value={speed}
-                    onChange={(e) =>
-                      setSpeed(e.target.value)
-                    }
-                    className={inputClassName}
-                  />
+                  <div>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="0.01"
+                      value={speed}
+                      onChange={(e) =>
+                        setSpeed(e.target.value)
+                      }
+                      aria-invalid={
+                        Boolean(validationErrors.speed)
+                      }
+                      className={`${inputClassName} ${
+                        validationErrors.speed
+                          ? invalidInputClassName
+                          : ""
+                      }`}
+                    />
+
+                    {validationErrors.speed && (
+                      <p className="mt-1 text-xs text-red-400">
+                        {validationErrors.speed}
+                      </p>
+                    )}
+                  </div>
                 </InputRow>
 
                 <InputRow
@@ -221,15 +285,12 @@ export default function Home() {
                     value={processName}
                     onChange={(e) => {
                       const selected =
-                        e.target
-                          .value as WeldingProcess;
+                        e.target.value as WeldingProcess;
 
                       setProcessName(selected);
 
                       setEfficiency(
-                        PROCESS_EFFICIENCY[
-                          selected
-                        ]
+                        PROCESS_EFFICIENCY[selected]
                       );
                     }}
                     style={{
