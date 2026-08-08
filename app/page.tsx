@@ -33,13 +33,16 @@ export default function Home() {
   const [speed, setSpeed] = useState("");
 
   const [useFactor, setUseFactor] = useState(true);
+
   const [processName, setProcessName] =
     useState<WeldingProcess>("MIG / MAG");
+
   const [efficiency, setEfficiency] = useState(
     PROCESS_EFFICIENCY["MIG / MAG"]
   );
 
-  const [result, setResult] = useState<number | null>(null);
+  const [result, setResult] =
+    useState<number | null>(null);
 
   useEffect(() => {
     setResult(
@@ -59,22 +62,7 @@ export default function Home() {
     useFactor,
   ]);
 
-  useEffect(() => {
-    if (loading) {
-      return;
-    }
-
-    if (!user) {
-      router.replace("/login");
-      return;
-    }
-
-    if (!user.emailVerified) {
-      router.replace("/login");
-    }
-  }, [loading, user, router]);
-
-  if (loading || !user || !user.emailVerified) {
+  if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#020617] text-white">
         <div className="rounded-2xl border border-cyan-500/20 bg-black/60 px-8 py-6 text-center shadow-[0_0_40px_rgba(0,255,255,0.08)]">
@@ -130,7 +118,11 @@ export default function Home() {
 
           <button
             type="button"
-            onClick={() => router.push("/account")}
+            onClick={() =>
+              router.push(
+                user ? "/account" : "/login"
+              )
+            }
             className="group flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-500/20 bg-black/40 transition-all hover:border-cyan-400/60 sm:h-14 sm:w-14"
           >
             <div className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/20 bg-black/40 sm:h-12 sm:w-12">
@@ -230,12 +222,15 @@ export default function Home() {
                     value={processName}
                     onChange={(e) => {
                       const selected =
-                        e.target.value as WeldingProcess;
+                        e.target
+                          .value as WeldingProcess;
 
                       setProcessName(selected);
 
                       setEfficiency(
-                        PROCESS_EFFICIENCY[selected]
+                        PROCESS_EFFICIENCY[
+                          selected
+                        ]
                       );
                     }}
                     style={{
@@ -271,7 +266,8 @@ export default function Home() {
                       type="button"
                       onClick={() =>
                         setUseFactor(
-                          (current) => !current
+                          (current) =>
+                            !current
                         )
                       }
                       className={`relative h-7 w-14 rounded-full transition-all duration-300 sm:h-10 sm:w-20 ${
