@@ -66,6 +66,36 @@ describe("calculateHeatInput", () => {
     expect(result).toBe(1.06);
   });
 
+  it("applies or bypasses the K-factor correctly for every welding process", () => {
+    const voltage = "24";
+    const amperage = "220";
+    const speed = "300";
+
+    for (const efficiency of Object.values(PROCESS_EFFICIENCY)) {
+      const withFactor = calculateHeatInput(
+        voltage,
+        amperage,
+        speed,
+        efficiency,
+        true
+      );
+
+      const withoutFactor = calculateHeatInput(
+        voltage,
+        amperage,
+        speed,
+        efficiency,
+        false
+      );
+
+      expect(withFactor).toBe(
+        Number((1.056 * efficiency).toFixed(2))
+      );
+
+      expect(withoutFactor).toBe(1.06);
+    }
+  });
+
   it("returns null for empty values", () => {
     expect(
       calculateHeatInput(
