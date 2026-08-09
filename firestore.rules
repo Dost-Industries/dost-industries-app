@@ -14,34 +14,31 @@ service cloud.firestore {
 
     function hasValidUserFields() {
       return request.resource.data.keys().hasAll([
-          "uid",
-          "name",
-          "email",
-          "plan",
-          "role",
-          "modules",
-          "companyId",
-          "createdAt"
-        ])
-        && request.resource.data.keys().hasOnly([
-          "uid",
-          "name",
-          "email",
-          "plan",
-          "role",
-          "modules",
-          "companyId",
-          "createdAt"
-        ]);
+        "uid",
+        "name",
+        "email",
+        "role",
+        "entitlements",
+        "companyId",
+        "createdAt"
+      ])
+      && request.resource.data.keys().hasOnly([
+        "uid",
+        "name",
+        "email",
+        "role",
+        "entitlements",
+        "companyId",
+        "createdAt"
+      ]);
     }
 
     function hasValidUserValues(userId) {
       return request.resource.data.uid == userId
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.email == request.auth.token.email
-        && request.resource.data.plan == "FREE"
         && request.resource.data.role == "USER"
-        && request.resource.data.modules == ["heat-input"]
+        && request.resource.data.entitlements == []
         && request.resource.data.companyId == null
         && request.resource.data.createdAt == request.time;
     }
@@ -54,10 +51,9 @@ service cloud.firestore {
         && request.resource.data.email is string
         && request.resource.data.email.size() >= 3
         && request.resource.data.email.size() <= 320
-        && request.resource.data.plan is string
         && request.resource.data.role is string
-        && request.resource.data.modules is list
-        && request.resource.data.modules.size() == 1;
+        && request.resource.data.entitlements is list
+        && request.resource.data.entitlements.size() == 0;
     }
 
     match /users/{userId} {

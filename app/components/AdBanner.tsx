@@ -2,12 +2,18 @@
 
 import { useAuth } from "../../hooks/useAuth";
 
+import {
+  ENTITLEMENTS,
+  hasEntitlement,
+} from "../../lib/entitlements";
+
 export default function AdBanner() {
   const { profile, loading } = useAuth();
 
-  const isAdFree =
-    profile?.plan === "PREMIUM" ||
-    profile?.plan === "BUSINESS";
+  const isAdFree = hasEntitlement(
+    profile?.entitlements,
+    ENTITLEMENTS.REMOVE_ADS
+  );
 
   if (isAdFree) {
     return null;

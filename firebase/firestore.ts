@@ -8,13 +8,16 @@ import {
 
 import { db } from "./config";
 
+import type {
+  Entitlement,
+} from "../lib/entitlements";
+
 export type UserProfile = {
   uid: string;
   name: string;
   email: string;
-  plan: "FREE" | "PREMIUM" | "BUSINESS";
+  entitlements: Entitlement[];
   role: "USER" | "ADMIN";
-  modules: string[];
   companyId: string | null;
   createdAt: unknown;
 };
@@ -28,24 +31,42 @@ export async function createUserProfile(
     uid,
     name,
     email,
-    plan: "FREE",
+    entitlements: [],
     role: "USER",
-    modules: ["heat-input"],
     companyId: null,
     createdAt: serverTimestamp(),
   });
 }
 
-export async function getUserProfile(uid: string) {
-  const snapshot = await getDoc(doc(db, "users", uid));
+export async function getUserProfile(
+  uid: string
+): Promise<UserProfile | null> {
+  const snapshot = await getDoc(
+    doc(db, "users", uid)
+  );
 
   if (!snapshot.exists()) {
     return null;
   }
 
-  return snapshot.data() as UserProfile;
+  const data = snapshot.data();
+
+  return {
+    uid: data.uid,
+    name: data.name,
+    email: data.email,
+    entitlements:
+      Array.isArray(data.entitlements)
+        ? data.entitlements
+        : [],
+    role: data.role,
+    companyId: data.companyId ?? null,
+    createdAt: data.createdAt,
+  } as UserProfile;
 }
 
-export async function deleteUserProfile(uid: string) {
+export async function deleteUserProfile(
+  uid: string
+) {
   await deleteDoc(doc(db, "users", uid));
 }

@@ -16,6 +16,11 @@ import {
 
 import { useAuth } from "../../hooks/useAuth";
 
+import {
+  ENTITLEMENTS,
+  hasEntitlement,
+} from "../../lib/entitlements";
+
 export default function AccountPage() {
   const router = useRouter();
 
@@ -35,6 +40,24 @@ export default function AccountPage() {
   const [deleteError, setDeleteError] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+
+  const hasPremiumAccess =
+    hasEntitlement(
+      profile?.entitlements,
+      ENTITLEMENTS.HEAT_INPUT_PREMIUM
+    ) ||
+    hasEntitlement(
+      profile?.entitlements,
+      ENTITLEMENTS.REMOVE_ADS
+    ) ||
+    hasEntitlement(
+      profile?.entitlements,
+      ENTITLEMENTS.SAVE_CALCULATIONS
+    ) ||
+    hasEntitlement(
+      profile?.entitlements,
+      ENTITLEMENTS.PDF_EXPORT
+    );
 
   useEffect(() => {
     if (loading) {
@@ -240,17 +263,19 @@ export default function AccountPage() {
             <div className="mt-7 grid gap-4 sm:grid-cols-2">
               <div className="rounded-2xl border border-cyan-500/20 bg-cyan-400/5 p-5">
                 <p className="text-xs uppercase tracking-[0.25em] text-zinc-500">
-                  Plan
+                  Access
                 </p>
 
                 <p className="mt-2 text-2xl font-semibold text-cyan-300">
-                  {profile?.plan || "FREE"}
+                  {hasPremiumAccess
+                    ? "DOST PREMIUM"
+                    : "FREE"}
                 </p>
               </div>
 
               <div className="rounded-2xl border border-cyan-500/20 bg-cyan-400/5 p-5">
                 <p className="text-xs uppercase tracking-[0.25em] text-zinc-500">
-                  Modules
+                  Available Tool
                 </p>
 
                 <p className="mt-2 text-2xl font-semibold text-cyan-300">
@@ -259,47 +284,55 @@ export default function AccountPage() {
               </div>
             </div>
 
-            <div className="mt-6 rounded-2xl border border-cyan-400/25 bg-black/45 p-5 sm:p-6">
-              <p className="text-xs uppercase tracking-[0.3em] text-cyan-400">
-                Premium
-              </p>
+            {!hasPremiumAccess && (
+              <div className="mt-6 rounded-2xl border border-cyan-400/25 bg-black/45 p-5 sm:p-6">
+                <p className="text-xs uppercase tracking-[0.3em] text-cyan-400">
+                  DOST Premium
+                </p>
 
-              <h3 className="mt-3 text-xl font-semibold">
-                Remove advertisements
-              </h3>
+                <h3 className="mt-3 text-xl font-semibold">
+                  Unlock your professional workspace
+                </h3>
 
-              <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-                Upgrade your workspace and support future DOST Industries modules.
-              </p>
+                <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+                  Remove advertisements, save calculations
+                  and export professional PDF reports.
+                </p>
 
-              <button
-                type="button"
-                className="mt-5 rounded-xl border border-cyan-400/40 bg-cyan-400/10 px-5 py-3 text-sm font-bold uppercase tracking-[0.2em] text-cyan-300 transition hover:bg-cyan-400/15"
-              >
-                Upgrade Soon
-              </button>
-            </div>
+                <button
+                  type="button"
+                  className="mt-5 rounded-xl border border-cyan-400/40 bg-cyan-400/10 px-5 py-3 text-sm font-bold uppercase tracking-[0.2em] text-cyan-300 transition hover:bg-cyan-400/15"
+                >
+                  Upgrade Soon
+                </button>
+              </div>
+            )}
 
-            <div className="mt-6 rounded-2xl border border-cyan-400/20 bg-black/40 p-5 sm:p-6">
-              <p className="text-xs uppercase tracking-[0.3em] text-cyan-400">
-                Business
-              </p>
+            {hasPremiumAccess && (
+              <div className="mt-6 rounded-2xl border border-cyan-400/25 bg-black/45 p-5 sm:p-6">
+                <p className="text-xs uppercase tracking-[0.3em] text-cyan-400">
+                  DOST Premium
+                </p>
 
-              <h3 className="mt-3 text-xl font-semibold">
-                Equip your welding team
-              </h3>
+                <h3 className="mt-3 text-xl font-semibold">
+                  Premium access active
+                </h3>
 
-              <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-                Business licenses and module access for professional welding companies.
-              </p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl border border-cyan-500/15 bg-cyan-400/5 px-4 py-3 text-sm text-zinc-300">
+                    No advertisements
+                  </div>
 
-              <button
-                type="button"
-                className="mt-5 rounded-xl border border-cyan-500/30 bg-cyan-500/5 px-5 py-3 text-sm font-bold uppercase tracking-[0.2em] text-cyan-300 transition hover:bg-cyan-500/10"
-              >
-                Coming Soon
-              </button>
-            </div>
+                  <div className="rounded-xl border border-cyan-500/15 bg-cyan-400/5 px-4 py-3 text-sm text-zinc-300">
+                    Save calculations
+                  </div>
+
+                  <div className="rounded-xl border border-cyan-500/15 bg-cyan-400/5 px-4 py-3 text-sm text-zinc-300">
+                    PDF export
+                  </div>
+                </div>
+              </div>
+            )}
 
             <button
               type="button"
