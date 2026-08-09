@@ -12,11 +12,23 @@ import type {
   Entitlement,
 } from "../lib/entitlements";
 
+import type {
+  SubscriptionId,
+  SubscriptionStatus,
+} from "../lib/subscriptions";
+
+export type UserSubscription = {
+  id: SubscriptionId;
+  status: SubscriptionStatus;
+  updatedAt: unknown;
+};
+
 export type UserProfile = {
   uid: string;
   name: string;
   email: string;
   entitlements: Entitlement[];
+  subscription: UserSubscription | null;
   role: "USER" | "ADMIN";
   companyId: string | null;
   createdAt: unknown;
@@ -32,6 +44,7 @@ export async function createUserProfile(
     name,
     email,
     entitlements: [],
+    subscription: null,
     role: "USER",
     companyId: null,
     createdAt: serverTimestamp(),
@@ -59,6 +72,8 @@ export async function getUserProfile(
       Array.isArray(data.entitlements)
         ? data.entitlements
         : [],
+    subscription:
+      data.subscription ?? null,
     role: data.role,
     companyId: data.companyId ?? null,
     createdAt: data.createdAt,

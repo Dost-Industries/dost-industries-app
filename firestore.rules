@@ -19,6 +19,7 @@ service cloud.firestore {
         "email",
         "role",
         "entitlements",
+        "subscription",
         "companyId",
         "createdAt"
       ])
@@ -28,6 +29,7 @@ service cloud.firestore {
         "email",
         "role",
         "entitlements",
+        "subscription",
         "companyId",
         "createdAt"
       ]);
@@ -39,6 +41,7 @@ service cloud.firestore {
         && request.resource.data.email == request.auth.token.email
         && request.resource.data.role == "USER"
         && request.resource.data.entitlements == []
+        && request.resource.data.subscription == null
         && request.resource.data.companyId == null
         && request.resource.data.createdAt == request.time;
     }

@@ -38,6 +38,7 @@ function validUserProfile(
     email,
     role: "USER",
     entitlements: [],
+    subscription: null,
     companyId: null,
     createdAt: serverTimestamp(),
   };
@@ -534,6 +535,37 @@ describe(
               "users",
               "user-two"
             )
+          )
+        );
+      }
+    );
+    test(
+      "a user cannot register with a subscription",
+      async () => {
+        const uid = "user-one";
+        const email =
+          "user-one@example.com";
+    
+        const db =
+          testEnv
+            .authenticatedContext(uid, {
+              email,
+            })
+            .firestore();
+    
+        await assertFails(
+          setDoc(
+            doc(db, "users", uid),
+            {
+              ...validUserProfile(
+                uid,
+                email
+              ),
+              subscription: {
+                id: "dost-premium",
+                status: "ACTIVE",
+              },
+            }
           )
         );
       }
