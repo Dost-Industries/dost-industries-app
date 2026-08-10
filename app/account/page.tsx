@@ -34,6 +34,8 @@ import { useAuth } from "../../hooks/useAuth";
 
 import RestorePurchases from "../components/RestorePurchases";
 
+import SubscriptionManagement from "../components/SubscriptionManagement";
+
 import {
   ENTITLEMENTS,
   hasEntitlement,
@@ -728,6 +730,7 @@ export default function AccountPage() {
                 )}
               </div>
             )}
+            <SubscriptionManagement />
 <RestorePurchases />
             <button
               type="button"
