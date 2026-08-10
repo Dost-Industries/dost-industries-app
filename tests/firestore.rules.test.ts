@@ -44,6 +44,36 @@ function validUserProfile(
   };
 }
 
+function premiumUserProfile(
+  uid: string,
+  email: string
+) {
+  return {
+    ...validUserProfile(uid, email),
+    entitlements: [
+      "save-calculations",
+    ],
+  };
+}
+
+function validCalculation() {
+  return {
+    moduleId: "heat-input",
+    inputs: {
+      voltage: 24,
+      amperage: 220,
+      speed: 300,
+      efficiency: 0.8,
+    },
+    result: {
+      heatInput: 0.84,
+      unit: "kJ/mm",
+    },
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+}
+
 beforeAll(async () => {
   testEnv = await initializeTestEnvironment({
     projectId: PROJECT_ID,
@@ -89,7 +119,8 @@ describe(
       "a user can create their own valid free profile",
       async () => {
         const uid = "user-one";
-        const email = "user-one@example.com";
+        const email =
+          "user-one@example.com";
 
         const db =
           testEnv
@@ -539,20 +570,21 @@ describe(
         );
       }
     );
+
     test(
       "a user cannot register with a subscription",
       async () => {
         const uid = "user-one";
         const email =
           "user-one@example.com";
-    
+
         const db =
           testEnv
             .authenticatedContext(uid, {
               email,
             })
             .firestore();
-    
+
         await assertFails(
           setDoc(
             doc(db, "users", uid),
@@ -565,6 +597,326 @@ describe(
                 id: "dost-premium",
                 status: "ACTIVE",
               },
+            }
+          )
+        );
+      }
+    );
+  }
+);
+
+describe(
+  "Firestore calculation storage security rules",
+  () => {
+    test(
+      "a free user cannot save a calculation",
+      async () => {
+        const uid = "user-one";
+        const email =
+          "user-one@example.com";
+
+        await testEnv
+          .withSecurityRulesDisabled(
+            async (context) => {
+              await setDoc(
+                doc(
+                  context.firestore(),
+                  "users",
+                  uid
+                ),
+                validUserProfile(
+                  uid,
+                  email
+                )
+              );
+            }
+          );
+
+        const db =
+          testEnv
+            .authenticatedContext(uid, {
+              email,
+            })
+            .firestore();
+
+        await assertFails(
+          setDoc(
+            doc(
+              db,
+              "users",
+              uid,
+              "calculations",
+              "calculation-one"
+            ),
+            validCalculation()
+          )
+        );
+      }
+    );
+
+    test(
+      "a user with save-calculations entitlement can save a calculation",
+      async () => {
+        const uid = "user-one";
+        const email =
+          "user-one@example.com";
+
+        await testEnv
+          .withSecurityRulesDisabled(
+            async (context) => {
+              await setDoc(
+                doc(
+                  context.firestore(),
+                  "users",
+                  uid
+                ),
+                premiumUserProfile(
+                  uid,
+                  email
+                )
+              );
+            }
+          );
+
+        const db =
+          testEnv
+            .authenticatedContext(uid, {
+              email,
+            })
+            .firestore();
+
+        await assertSucceeds(
+          setDoc(
+            doc(
+              db,
+              "users",
+              uid,
+              "calculations",
+              "calculation-one"
+            ),
+            validCalculation()
+          )
+        );
+      }
+    );
+
+    test(
+      "a user with save-calculations entitlement can read their own calculation",
+      async () => {
+        const uid = "user-one";
+        const email =
+          "user-one@example.com";
+
+        await testEnv
+          .withSecurityRulesDisabled(
+            async (context) => {
+              await setDoc(
+                doc(
+                  context.firestore(),
+                  "users",
+                  uid
+                ),
+                premiumUserProfile(
+                  uid,
+                  email
+                )
+              );
+
+              await setDoc(
+                doc(
+                  context.firestore(),
+                  "users",
+                  uid,
+                  "calculations",
+                  "calculation-one"
+                ),
+                validCalculation()
+              );
+            }
+          );
+
+        const db =
+          testEnv
+            .authenticatedContext(uid, {
+              email,
+            })
+            .firestore();
+
+        await assertSucceeds(
+          getDoc(
+            doc(
+              db,
+              "users",
+              uid,
+              "calculations",
+              "calculation-one"
+            )
+          )
+        );
+      }
+    );
+
+    test(
+      "a user cannot read another user's calculation",
+      async () => {
+        await testEnv
+          .withSecurityRulesDisabled(
+            async (context) => {
+              await setDoc(
+                doc(
+                  context.firestore(),
+                  "users",
+                  "user-two"
+                ),
+                premiumUserProfile(
+                  "user-two",
+                  "user-two@example.com"
+                )
+              );
+
+              await setDoc(
+                doc(
+                  context.firestore(),
+                  "users",
+                  "user-two",
+                  "calculations",
+                  "calculation-one"
+                ),
+                validCalculation()
+              );
+            }
+          );
+
+        const db =
+          testEnv
+            .authenticatedContext(
+              "user-one",
+              {
+                email:
+                  "user-one@example.com",
+              }
+            )
+            .firestore();
+
+        await assertFails(
+          getDoc(
+            doc(
+              db,
+              "users",
+              "user-two",
+              "calculations",
+              "calculation-one"
+            )
+          )
+        );
+      }
+    );
+
+    test(
+      "a user with save-calculations entitlement can delete their own calculation",
+      async () => {
+        const uid = "user-one";
+        const email =
+          "user-one@example.com";
+
+        await testEnv
+          .withSecurityRulesDisabled(
+            async (context) => {
+              await setDoc(
+                doc(
+                  context.firestore(),
+                  "users",
+                  uid
+                ),
+                premiumUserProfile(
+                  uid,
+                  email
+                )
+              );
+
+              await setDoc(
+                doc(
+                  context.firestore(),
+                  "users",
+                  uid,
+                  "calculations",
+                  "calculation-one"
+                ),
+                validCalculation()
+              );
+            }
+          );
+
+        const db =
+          testEnv
+            .authenticatedContext(uid, {
+              email,
+            })
+            .firestore();
+
+        await assertSucceeds(
+          deleteDoc(
+            doc(
+              db,
+              "users",
+              uid,
+              "calculations",
+              "calculation-one"
+            )
+          )
+        );
+      }
+    );
+
+    test(
+      "an invalid calculation structure is rejected",
+      async () => {
+        const uid = "user-one";
+        const email =
+          "user-one@example.com";
+
+        await testEnv
+          .withSecurityRulesDisabled(
+            async (context) => {
+              await setDoc(
+                doc(
+                  context.firestore(),
+                  "users",
+                  uid
+                ),
+                premiumUserProfile(
+                  uid,
+                  email
+                )
+              );
+            }
+          );
+
+        const db =
+          testEnv
+            .authenticatedContext(uid, {
+              email,
+            })
+            .firestore();
+
+        await assertFails(
+          setDoc(
+            doc(
+              db,
+              "users",
+              uid,
+              "calculations",
+              "calculation-one"
+            ),
+            {
+              moduleId: "heat-input",
+              inputs: {
+                voltage: 24,
+              },
+              createdAt:
+                serverTimestamp(),
+              updatedAt:
+                serverTimestamp(),
             }
           )
         );

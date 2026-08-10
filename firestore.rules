@@ -12,6 +12,15 @@ service cloud.firestore {
         && request.auth.uid == userId;
     }
 
+    function hasSaveCalculationsEntitlement(userId) {
+      return isOwner(userId)
+        && get(
+          /databases/$(database)/documents/users/$(userId)
+        ).data.entitlements.hasAny([
+          "save-calculations"
+        ]);
+    }
+
     function hasValidUserFields() {
       return request.resource.data.keys().hasAll([
         "uid",
@@ -59,6 +68,33 @@ service cloud.firestore {
         && request.resource.data.entitlements.size() == 0;
     }
 
+    function hasValidCalculationFields() {
+      return request.resource.data.keys().hasAll([
+        "moduleId",
+        "inputs",
+        "result",
+        "createdAt",
+        "updatedAt"
+      ])
+      && request.resource.data.keys().hasOnly([
+        "moduleId",
+        "inputs",
+        "result",
+        "createdAt",
+        "updatedAt"
+      ]);
+    }
+
+    function hasValidCalculationValues() {
+      return request.resource.data.moduleId is string
+        && request.resource.data.moduleId.size() >= 1
+        && request.resource.data.moduleId.size() <= 100
+        && request.resource.data.inputs is map
+        && request.resource.data.result is map
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+    }
+
     match /users/{userId} {
       allow read: if isOwner(userId);
 
@@ -70,6 +106,18 @@ service cloud.firestore {
       allow update: if false;
 
       allow delete: if isOwner(userId);
+
+      match /calculations/{calculationId} {
+        allow read: if hasSaveCalculationsEntitlement(userId);
+
+        allow create: if hasSaveCalculationsEntitlement(userId)
+                      && hasValidCalculationFields()
+                      && hasValidCalculationValues();
+
+        allow update: if false;
+
+        allow delete: if hasSaveCalculationsEntitlement(userId);
+      }
     }
 
     match /{document=**} {

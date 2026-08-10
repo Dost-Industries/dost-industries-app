@@ -6,6 +6,7 @@ import {
   Flame,
   Gauge,
   Menu,
+  Save,
   Settings2,
   User,
   Zap,
@@ -30,33 +31,73 @@ import {
   validateHeatInputFields,
 } from "../lib/heat-input-validation";
 
+import {
+  ENTITLEMENTS,
+  hasEntitlement,
+} from "../lib/entitlements";
+
+import {
+  saveCalculation,
+} from "../firebase/calculations";
+
 export default function Home() {
   const router = useRouter();
-  const { user, loading } = useAuth();
 
-  const [menuOpen, setMenuOpen] = useState(false);
+  const {
+    user,
+    profile,
+    loading,
+  } = useAuth();
 
-  const [voltage, setVoltage] = useState("");
-  const [amperage, setAmperage] = useState("");
-  const [speed, setSpeed] = useState("");
+  const [menuOpen, setMenuOpen] =
+    useState(false);
 
-  const [useFactor, setUseFactor] = useState(true);
+  const [voltage, setVoltage] =
+    useState("");
+
+  const [amperage, setAmperage] =
+    useState("");
+
+  const [speed, setSpeed] =
+    useState("");
+
+  const [useFactor, setUseFactor] =
+    useState(true);
 
   const [processName, setProcessName] =
-    useState<WeldingProcess>("MIG / MAG");
+    useState<WeldingProcess>(
+      "MIG / MAG"
+    );
 
-  const [efficiency, setEfficiency] = useState(
-    PROCESS_EFFICIENCY["MIG / MAG"]
-  );
+  const [efficiency, setEfficiency] =
+    useState(
+      PROCESS_EFFICIENCY["MIG / MAG"]
+    );
 
-  const validationErrors = validateHeatInputFields(
-    voltage,
-    amperage,
-    speed
-  );
+  const [saving, setSaving] =
+    useState(false);
+
+  const [
+    saveMessage,
+    setSaveMessage,
+  ] = useState("");
+
+  const [
+    saveError,
+    setSaveError,
+  ] = useState("");
+
+  const validationErrors =
+    validateHeatInputFields(
+      voltage,
+      amperage,
+      speed
+    );
 
   const hasValidationErrors =
-    hasHeatInputValidationErrors(validationErrors);
+    hasHeatInputValidationErrors(
+      validationErrors
+    );
 
   const result = hasValidationErrors
     ? null
@@ -67,6 +108,72 @@ export default function Home() {
         efficiency,
         useFactor
       );
+
+  const canSaveCalculations =
+    hasEntitlement(
+      profile?.entitlements,
+      ENTITLEMENTS.SAVE_CALCULATIONS
+    );
+
+  async function handleSaveCalculation() {
+    setSaveMessage("");
+    setSaveError("");
+
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+
+    if (!canSaveCalculations) {
+      router.push("/account");
+      return;
+    }
+
+    if (result === null) {
+      setSaveError(
+        "Complete the calculation before saving."
+      );
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      await saveCalculation(
+        user.uid,
+        "heat-input",
+        {
+          voltage: Number(voltage),
+          amperage: Number(amperage),
+          travelSpeed: Number(speed),
+          process: processName,
+          useFactor,
+          efficiency: useFactor
+            ? efficiency
+            : 1,
+        },
+        {
+          heatInput: result,
+          unit: "kJ/mm",
+        }
+      );
+
+      setSaveMessage(
+        "Calculation saved."
+      );
+    } catch (error) {
+      console.error(
+        "Failed to save calculation:",
+        error
+      );
+
+      setSaveError(
+        "Calculation could not be saved."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -100,7 +207,9 @@ export default function Home() {
         <div className="mx-auto flex max-w-5xl items-center justify-between px-2 py-1 sm:px-6 sm:py-2">
           <button
             type="button"
-            onClick={() => setMenuOpen(true)}
+            onClick={() =>
+              setMenuOpen(true)
+            }
             aria-label="Open navigation menu"
             aria-expanded={menuOpen}
             className="group flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-500/20 bg-black/40 transition-all hover:border-cyan-400/60 sm:h-14 sm:w-14"
@@ -124,7 +233,8 @@ export default function Home() {
             </h1>
 
             <p className="mt-1 text-[0.48rem] uppercase tracking-[0.35em] text-zinc-500 sm:text-sm sm:tracking-[0.45em]">
-              Digital Welding & Engineering Tools
+              Digital Welding & Engineering
+              Tools
             </p>
           </div>
 
@@ -132,7 +242,9 @@ export default function Home() {
             type="button"
             onClick={() =>
               router.push(
-                user ? "/account" : "/login"
+                user
+                  ? "/account"
+                  : "/login"
               )
             }
             className="group flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-500/20 bg-black/40 transition-all hover:border-cyan-400/60 sm:h-14 sm:w-14"
@@ -150,7 +262,9 @@ export default function Home() {
       <NavigationMenu
         open={menuOpen}
         isAuthenticated={Boolean(user)}
-        onClose={() => setMenuOpen(false)}
+        onClose={() =>
+          setMenuOpen(false)
+        }
       />
 
       <section className="relative z-10 mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-10">
@@ -193,11 +307,13 @@ export default function Home() {
                       step="0.01"
                       value={voltage}
                       onChange={(e) =>
-                        setVoltage(e.target.value)
+                        setVoltage(
+                          e.target.value
+                        )
                       }
-                      aria-invalid={
-                        Boolean(validationErrors.voltage)
-                      }
+                      aria-invalid={Boolean(
+                        validationErrors.voltage
+                      )}
                       className={`${inputClassName} ${
                         validationErrors.voltage
                           ? invalidInputClassName
@@ -207,7 +323,9 @@ export default function Home() {
 
                     {validationErrors.voltage && (
                       <p className="mt-1 text-xs text-red-400">
-                        {validationErrors.voltage}
+                        {
+                          validationErrors.voltage
+                        }
                       </p>
                     )}
                   </div>
@@ -225,11 +343,13 @@ export default function Home() {
                       step="0.01"
                       value={amperage}
                       onChange={(e) =>
-                        setAmperage(e.target.value)
+                        setAmperage(
+                          e.target.value
+                        )
                       }
-                      aria-invalid={
-                        Boolean(validationErrors.amperage)
-                      }
+                      aria-invalid={Boolean(
+                        validationErrors.amperage
+                      )}
                       className={`${inputClassName} ${
                         validationErrors.amperage
                           ? invalidInputClassName
@@ -239,7 +359,9 @@ export default function Home() {
 
                     {validationErrors.amperage && (
                       <p className="mt-1 text-xs text-red-400">
-                        {validationErrors.amperage}
+                        {
+                          validationErrors.amperage
+                        }
                       </p>
                     )}
                   </div>
@@ -257,11 +379,13 @@ export default function Home() {
                       step="0.01"
                       value={speed}
                       onChange={(e) =>
-                        setSpeed(e.target.value)
+                        setSpeed(
+                          e.target.value
+                        )
                       }
-                      aria-invalid={
-                        Boolean(validationErrors.speed)
-                      }
+                      aria-invalid={Boolean(
+                        validationErrors.speed
+                      )}
                       className={`${inputClassName} ${
                         validationErrors.speed
                           ? invalidInputClassName
@@ -271,7 +395,9 @@ export default function Home() {
 
                     {validationErrors.speed && (
                       <p className="mt-1 text-xs text-red-400">
-                        {validationErrors.speed}
+                        {
+                          validationErrors.speed
+                        }
                       </p>
                     )}
                   </div>
@@ -285,16 +411,22 @@ export default function Home() {
                     value={processName}
                     onChange={(e) => {
                       const selected =
-                        e.target.value as WeldingProcess;
+                        e.target
+                          .value as WeldingProcess;
 
-                      setProcessName(selected);
+                      setProcessName(
+                        selected
+                      );
 
                       setEfficiency(
-                        PROCESS_EFFICIENCY[selected]
+                        PROCESS_EFFICIENCY[
+                          selected
+                        ]
                       );
                     }}
                     style={{
-                      backgroundColor: "#020617",
+                      backgroundColor:
+                        "#020617",
                       color: "#ffffff",
                     }}
                     className={`${inputClassName} appearance-none`}
@@ -335,7 +467,9 @@ export default function Home() {
                           ? "bg-cyan-400/90"
                           : "bg-zinc-800"
                       }`}
-                      aria-pressed={useFactor}
+                      aria-pressed={
+                        useFactor
+                      }
                     >
                       <div
                         className={`absolute top-0.5 h-6 w-6 rounded-full bg-black transition-all duration-300 sm:top-1 sm:h-8 sm:w-8 ${
@@ -355,7 +489,61 @@ export default function Home() {
                 <div className="absolute bottom-0 right-0 h-8 w-8 rounded-br-xl border-b border-r border-cyan-400/60 sm:h-10 sm:w-10" />
               </div>
 
-              <ResultCard result={result} />
+              <ResultCard
+                result={result}
+              />
+
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={() =>
+                    void handleSaveCalculation()
+                  }
+                  disabled={
+                    saving ||
+                    result === null
+                  }
+                  className="flex w-full items-center justify-center gap-3 rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300 transition-all duration-300 hover:border-cyan-300/60 hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm"
+                >
+                  <Save size={18} />
+
+                  {saving
+                    ? "Saving..."
+                    : !user
+                      ? "Sign in to save"
+                      : canSaveCalculations
+                        ? "Save calculation"
+                        : "Unlock calculation saving"}
+                </button>
+
+                {!user && (
+                  <p className="mt-2 text-center text-xs text-zinc-500">
+                    Sign in to use saved
+                    calculations.
+                  </p>
+                )}
+
+                {user &&
+                  !canSaveCalculations && (
+                    <p className="mt-2 text-center text-xs text-zinc-500">
+                      Calculation saving is
+                      included with DOST
+                      Premium.
+                    </p>
+                  )}
+
+                {saveMessage && (
+                  <p className="mt-2 text-center text-xs text-emerald-400">
+                    {saveMessage}
+                  </p>
+                )}
+
+                {saveError && (
+                  <p className="mt-2 text-center text-xs text-red-400">
+                    {saveError}
+                  </p>
+                )}
+              </div>
 
               <AdBanner />
 
