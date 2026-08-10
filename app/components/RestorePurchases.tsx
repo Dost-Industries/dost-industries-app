@@ -52,6 +52,12 @@ export default function RestorePurchases() {
       const idToken =
         await user.getIdToken();
 
+      /*
+       * Until the real billing provider is
+       * connected, these values deliberately
+       * use the future PayPal path while the
+       * validator remains fail-closed.
+       */
       const response =
         await fetch(
           "/api/subscriptions/restore",
@@ -60,7 +66,14 @@ export default function RestorePurchases() {
             headers: {
               Authorization:
                 `Bearer ${idToken}`,
+              "Content-Type":
+                "application/json",
             },
+            body: JSON.stringify({
+              provider: "paypal",
+              purchaseId:
+                "restore-request",
+            }),
           }
         );
 
@@ -70,6 +83,7 @@ export default function RestorePurchases() {
       if (!response.ok) {
         setError(
           data.error ??
+            data.message ??
             "Unable to restore purchases."
         );
 
