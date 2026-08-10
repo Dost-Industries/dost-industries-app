@@ -32,6 +32,8 @@ import {
 
 import { useAuth } from "../../hooks/useAuth";
 
+import RestorePurchases from "../components/RestorePurchases";
+
 import {
   ENTITLEMENTS,
   hasEntitlement,
@@ -726,7 +728,7 @@ export default function AccountPage() {
                 )}
               </div>
             )}
-
+<RestorePurchases />
             <button
               type="button"
               onClick={handleLogout}
