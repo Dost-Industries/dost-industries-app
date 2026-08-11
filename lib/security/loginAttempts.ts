@@ -5,6 +5,36 @@ import type { LoginAttempt } from "./types";
 
 const COLLECTION = "login_attempts";
 
+const RETENTION_MS =
+  24 * 60 * 60 * 1000;
+
+const CLEANUP_LIMIT = 50;
+
+export async function cleanupExpiredLoginAttempts(): Promise<void> {
+  const db = getAdminFirestore();
+
+  const cutoff =
+    Date.now() - RETENTION_MS;
+
+  const snapshot = await db
+    .collection(COLLECTION)
+    .where("lastAttemptAt", "<", cutoff)
+    .limit(CLEANUP_LIMIT)
+    .get();
+
+  if (snapshot.empty) {
+    return;
+  }
+
+  const batch = db.batch();
+
+  snapshot.docs.forEach((document) => {
+    batch.delete(document.ref);
+  });
+
+  await batch.commit();
+}
+
 export async function getLoginAttempt(
   identifier: string
 ): Promise<LoginAttempt | null> {
@@ -19,7 +49,19 @@ export async function getLoginAttempt(
     return null;
   }
 
-  return snapshot.data() as LoginAttempt;
+  const data =
+    snapshot.data() as LoginAttempt;
+
+  const expired =
+    Date.now() - data.lastAttemptAt >=
+    RETENTION_MS;
+
+  if (expired) {
+    await snapshot.ref.delete();
+    return null;
+  }
+
+  return data;
 }
 
 export async function saveLoginAttempt(

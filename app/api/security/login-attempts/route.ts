@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 
-import { NextRequest, NextResponse } from "next/server";
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
 
 import { getAdminAuth } from "../../../../lib/firebase-admin";
 
@@ -9,6 +12,10 @@ import {
   clearFailedAttempts,
   registerFailedAttempt,
 } from "../../../../lib/security/rateLimiter";
+
+import {
+  cleanupExpiredLoginAttempts,
+} from "../../../../lib/security/loginAttempts";
 
 type RateLimitAction =
   | "check"
@@ -20,12 +27,18 @@ type RequestBody = {
   identifier?: string;
 };
 
-function getClientIp(request: NextRequest): string {
+function getClientIp(
+  request: NextRequest
+): string {
   const forwardedFor =
-    request.headers.get("x-forwarded-for");
+    request.headers.get(
+      "x-forwarded-for"
+    );
 
   if (forwardedFor) {
-    return forwardedFor.split(",")[0].trim();
+    return forwardedFor
+      .split(",")[0]
+      .trim();
   }
 
   const realIp =
@@ -38,7 +51,9 @@ function getClientIp(request: NextRequest): string {
   return "unknown";
 }
 
-function normalizeEmail(email: string): string {
+function normalizeEmail(
+  email: string
+): string {
   return email.trim().toLowerCase();
 }
 
@@ -47,7 +62,11 @@ function createIdentifier(
   ipAddress: string
 ): string {
   return createHash("sha256")
-    .update(`${ipAddress}:${normalizeEmail(email)}`)
+    .update(
+      `${ipAddress}:${normalizeEmail(
+        email
+      )}`
+    )
     .digest("hex");
 }
 
@@ -56,27 +75,40 @@ async function verifySuccessfulLogin(
   requestedEmail: string
 ): Promise<boolean> {
   const authorization =
-    request.headers.get("authorization");
+    request.headers.get(
+      "authorization"
+    );
 
-  if (!authorization?.startsWith("Bearer ")) {
+  if (
+    !authorization?.startsWith(
+      "Bearer "
+    )
+  ) {
     return false;
   }
 
-  const idToken = authorization.slice(7).trim();
+  const idToken =
+    authorization.slice(7).trim();
 
   if (!idToken) {
     return false;
   }
 
   const decodedToken =
-    await getAdminAuth().verifyIdToken(idToken);
+    await getAdminAuth().verifyIdToken(
+      idToken
+    );
 
   const authenticatedEmail =
-    decodedToken.email?.trim().toLowerCase();
+    decodedToken.email
+      ?.trim()
+      .toLowerCase();
 
   return (
-    typeof authenticatedEmail === "string" &&
-    authenticatedEmail === normalizeEmail(requestedEmail)
+    typeof authenticatedEmail ===
+      "string" &&
+    authenticatedEmail ===
+      normalizeEmail(requestedEmail)
   );
 }
 
@@ -84,18 +116,23 @@ export async function POST(
   request: NextRequest
 ) {
   try {
+    await cleanupExpiredLoginAttempts();
+
     const body =
       (await request.json()) as RequestBody;
 
     const action = body.action;
-    const rawIdentifier = body.identifier;
+    const rawIdentifier =
+      body.identifier;
 
     if (
       !action ||
       !rawIdentifier ||
-      !["check", "failure", "success"].includes(
-        action
-      )
+      ![
+        "check",
+        "failure",
+        "success",
+      ].includes(action)
     ) {
       return NextResponse.json(
         {
@@ -107,7 +144,8 @@ export async function POST(
       );
     }
 
-    const email = normalizeEmail(rawIdentifier);
+    const email =
+      normalizeEmail(rawIdentifier);
 
     if (!email) {
       return NextResponse.json(
@@ -120,23 +158,32 @@ export async function POST(
       );
     }
 
-    const identifier = createIdentifier(
-      email,
-      getClientIp(request)
-    );
+    const identifier =
+      createIdentifier(
+        email,
+        getClientIp(request)
+      );
 
     if (action === "check") {
       const result =
-        await checkRateLimit(identifier);
+        await checkRateLimit(
+          identifier
+        );
 
-      return NextResponse.json(result);
+      return NextResponse.json(
+        result
+      );
     }
 
     if (action === "failure") {
       const result =
-        await registerFailedAttempt(identifier);
+        await registerFailedAttempt(
+          identifier
+        );
 
-      return NextResponse.json(result);
+      return NextResponse.json(
+        result
+      );
     }
 
     const authenticated =
@@ -157,7 +204,9 @@ export async function POST(
     }
 
     const result =
-      await clearFailedAttempts(identifier);
+      await clearFailedAttempts(
+        identifier
+      );
 
     return NextResponse.json(result);
   } catch (error) {
