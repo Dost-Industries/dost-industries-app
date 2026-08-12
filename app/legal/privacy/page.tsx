@@ -1,5 +1,5 @@
 "use client";
-
+import Link from "next/link";
 import { useState } from "react";
 
 type Language = "nl" | "en";
@@ -1588,30 +1588,30 @@ export default function PrivacyPolicyPage() {
 
       <header className="sticky top-0 z-40 border-b border-cyan-500/20 bg-[#020617]/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <a
-            href="/"
-            className="group"
-          >
-            <p className="text-sm font-black uppercase italic tracking-[0.2em] sm:text-lg sm:tracking-[0.3em]">
-              <span className="text-white">
-                DOST
-              </span>{" "}
-              <span className="text-cyan-400 drop-shadow-[0_0_14px_rgba(0,255,255,0.6)]">
-                INDUSTRIES
-              </span>
-            </p>
+        <Link
+  href="/"
+  className="group"
+>
+  <p className="text-sm font-black uppercase italic tracking-[0.2em] sm:text-lg sm:tracking-[0.3em]">
+    <span className="text-white">
+      DOST
+    </span>{" "}
+    <span className="text-cyan-400 drop-shadow-[0_0_14px_rgba(0,255,255,0.6)]">
+      INDUSTRIES
+    </span>
+  </p>
 
-            <p className="mt-1 text-[0.5rem] uppercase tracking-[0.28em] text-zinc-600 sm:text-[0.6rem]">
-              Professional Welding Tools
-            </p>
-          </a>
+  <p className="mt-1 text-[0.5rem] uppercase tracking-[0.28em] text-zinc-600 sm:text-[0.6rem]">
+    Professional Welding Tools
+  </p>
+</Link>
 
-          <a
-            href="/"
-            className="rounded-xl border border-cyan-500/25 bg-cyan-400/5 px-4 py-2 text-[0.65rem] font-bold uppercase tracking-[0.18em] text-cyan-300 transition hover:border-cyan-400/60 hover:bg-cyan-400/10"
-          >
-            Back to app
-          </a>
+<Link
+  href="/"
+  className="rounded-xl border border-cyan-500/25 bg-cyan-400/5 px-4 py-2 text-[0.65rem] font-bold uppercase tracking-[0.18em] text-cyan-300 transition hover:border-cyan-400/60 hover:bg-cyan-400/10"
+>
+  Back to app
+</Link>
         </div>
       </header>
 

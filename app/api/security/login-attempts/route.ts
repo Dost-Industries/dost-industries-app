@@ -70,6 +70,29 @@ function createIdentifier(
     .digest("hex");
 }
 
+function getSafeErrorName(
+  error: unknown
+): string {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    typeof (
+      error as {
+        name?: unknown;
+      }
+    ).name === "string"
+  ) {
+    return (
+      error as {
+        name: string;
+      }
+    ).name;
+  }
+
+  return "UnknownError";
+}
+
 async function verifySuccessfulLogin(
   request: NextRequest,
   requestedEmail: string
@@ -212,7 +235,7 @@ export async function POST(
   } catch (error) {
     console.error(
       "SEC-016 login rate limit error:",
-      error
+      getSafeErrorName(error)
     );
 
     return NextResponse.json(

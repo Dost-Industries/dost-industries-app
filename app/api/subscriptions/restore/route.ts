@@ -25,6 +25,29 @@ type RestoreRequestBody = {
   purchaseId?: string;
 };
 
+function getSafeErrorName(
+  error: unknown
+): string {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    typeof (
+      error as {
+        name?: unknown;
+      }
+    ).name === "string"
+  ) {
+    return (
+      error as {
+        name: string;
+      }
+    ).name;
+  }
+
+  return "UnknownError";
+}
+
 async function getAuthenticatedUid(
   request: NextRequest
 ): Promise<string | null> {
@@ -143,7 +166,7 @@ export async function POST(
   } catch (error) {
     console.error(
       "MON-007 purchase validation error:",
-      error
+      getSafeErrorName(error)
     );
 
     return NextResponse.json(

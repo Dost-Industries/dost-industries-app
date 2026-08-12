@@ -30,6 +30,29 @@ import {
     return token || null;
   }
   
+  function getSafeErrorName(
+    error: unknown
+  ): string {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "name" in error &&
+      typeof (
+        error as {
+          name?: unknown;
+        }
+      ).name === "string"
+    ) {
+      return (
+        error as {
+          name: string;
+        }
+      ).name;
+    }
+  
+    return "UnknownError";
+  }
+  
   export async function DELETE(
     request: NextRequest
   ) {
@@ -88,7 +111,7 @@ import {
     } catch (error) {
       console.error(
         "Account deletion failed:",
-        error
+        getSafeErrorName(error)
       );
   
       return NextResponse.json(
