@@ -15,14 +15,9 @@ import {
 import { useRouter } from "next/navigation";
 
 import {
-  deleteCurrentUser,
   logoutUser,
   reauthenticateCurrentUser,
 } from "../../firebase/auth";
-
-import {
-  deleteUserProfile,
-} from "../../firebase/firestore";
 
 import {
   deleteCalculation,
@@ -262,11 +257,26 @@ export default function AccountPage() {
         password
       );
 
-      await deleteUserProfile(
-        user.uid
-      );
+      const idToken =
+        await user.getIdToken(true);
 
-      await deleteCurrentUser();
+      const response =
+        await fetch(
+          "/api/account/delete",
+          {
+            method: "DELETE",
+            headers: {
+              Authorization:
+                `Bearer ${idToken}`,
+            },
+          }
+        );
+
+      if (!response.ok) {
+        throw new Error(
+          "Account deletion failed."
+        );
+      }
 
       router.replace("/login");
       router.refresh();
@@ -289,13 +299,6 @@ export default function AccountPage() {
           case "auth/requires-recent-login":
             setDeleteError(
               "Please log out, log in again and retry the deletion."
-            );
-            break;
-
-          case "permission-denied":
-          case "firestore/permission-denied":
-            setDeleteError(
-              "The account data could not be deleted because Firestore denied access."
             );
             break;
 
@@ -730,8 +733,11 @@ export default function AccountPage() {
                 )}
               </div>
             )}
+
             <SubscriptionManagement />
-<RestorePurchases />
+
+            <RestorePurchases />
+
             <button
               type="button"
               onClick={handleLogout}
@@ -769,9 +775,11 @@ export default function AccountPage() {
             </h2>
 
             <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-              Your account and saved profile
-              will be permanently deleted.
-              This cannot be undone.
+              Your account, saved
+              calculations and associated
+              account data will be
+              permanently deleted. This
+              cannot be undone.
             </p>
 
             <label className="mt-6 block">
