@@ -43,7 +43,11 @@ This register must be updated whenever a new module, provider, processing purpos
 
 ---
 
+
+
 ## 2. Roles
+
+
 
 ### 2.1 Data controller
 
@@ -60,6 +64,8 @@ Dost Industries B.V. is the controller for personal data processed for:
 - future product analytics where activated;
 - future communications where activated.
 
+
+
 ### 2.2 Processors and service providers
 
 Current and planned processors are recorded separately in Section 10.
@@ -67,6 +73,8 @@ Current and planned processors are recorded separately in Section 10.
 A provider marked **PLANNED / INACTIVE** is not considered an active processing activity until the corresponding service is enabled in production.
 
 ---
+
+
 
 ## 3. Categories of data subjects
 
@@ -84,6 +92,8 @@ Current or anticipated data subjects include:
 
 ---
 
+
+
 ## 4. Categories of personal data
 
 Depending on the feature used, Dost Industries may process:
@@ -98,6 +108,8 @@ Depending on the feature used, Dost Industries may process:
 - account role;
 - company identifier where applicable.
 
+
+
 ### Subscription and access data
 
 - entitlement identifiers;
@@ -106,6 +118,8 @@ Depending on the feature used, Dost Industries may process:
 - subscription update timestamps;
 - future payment-provider references;
 - future purchase or transaction identifiers.
+
+
 
 ### Technical and security data
 
@@ -116,6 +130,8 @@ Depending on the feature used, Dost Industries may process:
 - failed-login timestamps;
 - temporary lockout information;
 - application/server error category.
+
+
 
 ### Application data
 
@@ -128,6 +144,8 @@ Depending on the feature used, Dost Industries may process:
 - future customer/company name;
 - future location information;
 - future technical work data.
+
+
 
 ### Future uploaded data
 
@@ -142,6 +160,8 @@ Where future modules are activated:
 - project documentation;
 - user-supplied technical files.
 
+
+
 ### Future communications data
 
 Where activated:
@@ -150,6 +170,8 @@ Where activated:
 - email communication;
 - notification preferences;
 - notification delivery data.
+
+
 
 ### Future analytics and diagnostics data
 
@@ -163,6 +185,8 @@ Only if explicitly activated:
 
 ---
 
+
+
 ## 5. Processing activity — User registration and authentication
 
 **Status:** ACTIVE
@@ -175,10 +199,14 @@ Only if explicitly activated:
 - enable password reset;
 - protect accounts against unauthorised access.
 
+
+
 ### Data subjects
 
 - registered users;
 - users attempting to register or log in.
+
+
 
 ### Personal data
 
@@ -188,6 +216,8 @@ Only if explicitly activated:
 - email-verification status;
 - IP address and user-agent information processed by Firebase Authentication;
 - authentication tokens and authentication metadata.
+
+
 
 ### Legal basis
 
@@ -199,9 +229,13 @@ Security-related authentication processing may additionally rely on:
 
 - GDPR Article 6(1)(f): legitimate interest in preventing abuse, fraud and unauthorised access.
 
+
+
 ### Systems / recipients
 
 - Firebase Authentication / Google.
+
+
 
 ### Storage / processing location
 
@@ -215,11 +249,15 @@ International transfer safeguards and applicable Google contractual mechanisms m
 - authentication information is deleted when the Firebase user is deleted, subject to Google's own backup and deletion lifecycle;
 - Firebase may retain authentication security logs, including IP-address information, for its documented security-retention period.
 
+
+
 ### Deletion
 
 The DOST account deletion flow deletes the Firebase Authentication user through the Firebase Admin SDK after application data is removed.
 
 ---
+
+
 
 ## 6. Processing activity — User profile and access administration
 
@@ -233,9 +271,13 @@ The DOST account deletion flow deletes the Firebase Authentication user through 
 - store subscription state;
 - support future business/team access controls.
 
+
+
 ### Data subjects
 
 - registered users.
+
+
 
 ### Personal data
 
@@ -250,10 +292,14 @@ Currently:
 - companyId where applicable;
 - account creation timestamp.
 
+
+
 ### Legal basis
 
 - GDPR Article 6(1)(b): performance of the application service.
 - GDPR Article 6(1)(f): legitimate interest in secure access management where applicable.
+
+
 
 ### System
 
@@ -281,11 +327,15 @@ Until:
 - or earlier deletion where no longer necessary;
 - subject to legal obligations that may require limited retention of separate records.
 
+
+
 ### Deletion
 
 Account deletion recursively removes the user's Firestore document and all nested user data before deletion of the Firebase Authentication user.
 
 ---
+
+
 
 ## 7. Processing activity — Saved calculations
 
@@ -300,9 +350,13 @@ Allow authorised users to:
 - reuse technical results;
 - delete individual saved calculations.
 
+
+
 ### Data subjects
 
 - registered users with the relevant entitlement.
+
+
 
 ### Personal data
 
@@ -323,6 +377,8 @@ Future modules may result in saved calculation records containing project-relate
 
 - GDPR Article 6(1)(b): provision of the requested saved-calculation service.
 
+
+
 ### Firestore path
 
 `users/{uid}/calculations/{calculationId}`
@@ -342,12 +398,16 @@ Until the earliest of:
 - product-level deletion rules introduced for a future module;
 - data no longer being necessary for the service.
 
+
+
 ### Deletion
 
 - individual calculations can be deleted by the user;
 - account deletion recursively deletes all calculations belonging to that account.
 
 ---
+
+
 
 ## 8. Processing activity — Login abuse prevention
 
@@ -360,9 +420,13 @@ Until the earliest of:
 - temporarily rate-limit repeated failed login attempts;
 - protect user accounts and Dost Industries systems.
 
+
+
 ### Data subjects
 
 - persons attempting to log in.
+
+
 
 ### Personal data
 
@@ -419,6 +483,8 @@ Raw email addresses and IP addresses are deliberately not persisted in this appl
 
 ---
 
+
+
 ## 9. Processing activity — Server-side operational logging
 
 **Status:** ACTIVE
@@ -428,6 +494,8 @@ Raw email addresses and IP addresses are deliberately not persisted in this appl
 - diagnose server failures;
 - detect technical malfunction;
 - support application security and availability.
+
+
 
 ### Data
 
@@ -447,6 +515,8 @@ They do not intentionally log:
 - email addresses;
 - UIDs;
 - IP addresses.
+
+
 
 ### Recipients
 
@@ -475,7 +545,11 @@ Retention must be reviewed whenever the Vercel plan, Observability configuration
 
 ---
 
+
+
 ## 10. Processor and provider register
+
+
 
 ### 10.1 Google / Firebase Authentication
 
@@ -517,6 +591,8 @@ Google/Firebase data processing and privacy documentation applies.
 
 ---
 
+
+
 ### 10.2 Google Cloud Firestore
 
 **Status:** ACTIVE
@@ -548,6 +624,8 @@ This must not be interpreted as a guarantee that every aspect of Google's servic
 Google's applicable data-processing and international-transfer terms remain relevant.
 
 ---
+
+
 
 ### 10.3 Vercel
 
@@ -588,6 +666,8 @@ Vercel's current Data Processing Addendum and subprocessor information must ther
 
 ---
 
+
+
 ### 10.4 Google AdSense
 
 **Status:** PLANNED / INACTIVE
@@ -604,6 +684,8 @@ Before activation:
 - document retention and transfer mechanisms.
 
 ---
+
+
 
 ### 10.5 PayPal
 
@@ -622,6 +704,8 @@ Before activation:
 
 ---
 
+
+
 ### 10.6 Apple App Store / Google Play Billing
 
 **Status:** PLANNED / INACTIVE
@@ -629,6 +713,8 @@ Before activation:
 To be assessed before native-app billing is activated.
 
 ---
+
+
 
 ### 10.7 Analytics provider
 
@@ -650,6 +736,8 @@ Before analytics activation:
 
 ---
 
+
+
 ### 10.8 Crash/error reporting provider
 
 **Status:** PLANNED / INACTIVE
@@ -665,6 +753,8 @@ Before activation:
 - update Privacy Policy.
 
 ---
+
+
 
 ### 10.9 AI provider
 
@@ -685,6 +775,8 @@ Before any AI assistant processes user content:
 - conduct a DPIA screening before production activation.
 
 ---
+
+
 
 ## 11. International transfers
 
@@ -710,7 +802,11 @@ They must be reviewed when:
 
 ---
 
+
+
 ## 12. Retention schedule
+
+
 
 ### Firebase Authentication account
 
@@ -725,6 +821,8 @@ Account deletion.
 Provider-side residual/back-up deletion is subject to Google's documented deletion lifecycle.
 
 ---
+
+
 
 ### User profile
 
@@ -742,6 +840,8 @@ Account deletion.
 
 ---
 
+
+
 ### Saved calculations
 
 Path:
@@ -755,6 +855,8 @@ Until manually deleted by user or account deletion.
 Future modules may define shorter module-specific retention where necessary.
 
 ---
+
+
 
 ### Login security records
 
@@ -771,6 +873,8 @@ Deletion:
 Application-triggered cleanup and successful-login cleanup.
 
 ---
+
+
 
 ### Server operational logs
 
@@ -789,6 +893,8 @@ Review retention whenever the hosting plan, logging configuration or log-export 
 
 ---
 
+
+
 ### Support correspondence
 
 Status:
@@ -803,6 +909,8 @@ A definitive retention period must be set when structured support tooling is int
 
 ---
 
+
+
 ### Payment/financial records
 
 Status:
@@ -816,6 +924,8 @@ To be determined according to applicable Dutch tax/accounting obligations and pa
 Payment records required by law must not automatically be deleted solely because an application account is deleted.
 
 ---
+
+
 
 ## 13. Data-subject rights
 
@@ -848,6 +958,8 @@ The deletion flow:
 6. recursively deletes `users/{uid}` and nested data;
 7. deletes the Firebase Authentication account.
 
+
+
 ### Data access / portability
 
 No dedicated self-service data-export interface is currently active.
@@ -857,6 +969,8 @@ Until such functionality is implemented, qualifying requests can be handled manu
 A self-service export function should be reassessed when the volume or complexity of stored user/project data increases.
 
 ---
+
+
 
 ## 14. Security controls
 
@@ -891,6 +1005,8 @@ Security controls must be reassessed when:
 
 ---
 
+
+
 ## 15. Data minimisation rules
 
 DOST Industries follows these implementation rules:
@@ -907,6 +1023,8 @@ DOST Industries follows these implementation rules:
 10. Test accounts and production accounts must be treated as real personal data when they contain real identifiers.
 
 ---
+
+
 
 ## 16. Privacy by design requirements for future modules
 
@@ -937,6 +1055,8 @@ No new personal-data processing should be treated as production-ready until thes
 
 ---
 
+
+
 ## 17. DPIA screening
 
 A formal Data Protection Impact Assessment is not automatically assumed necessary for the current calculator/account MVP.
@@ -956,6 +1076,8 @@ If the screening indicates likely high risk to individuals, a DPIA must be perfo
 
 ---
 
+
+
 ## 18. Data breach handling
 
 Dost Industries must maintain the ability to:
@@ -972,6 +1094,8 @@ Dost Industries must maintain the ability to:
 No breach notification should be delayed merely because all technical facts are not yet known.
 
 ---
+
+
 
 ## 19. Processor review obligations
 
@@ -995,7 +1119,11 @@ Planned providers must be reviewed before activation.
 
 ---
 
+
+
 ## 20. Current GDPR implementation status
+
+
 
 ### Completed
 
@@ -1013,11 +1141,15 @@ Planned providers must be reviewed before activation.
 - production typecheck passed;
 - production lint passed;
 - production build passed.
+- bilingual Account Deletion Policy;
+- LEG-005 Account Deletion Policy completed;
+
+
 
 ### Still to complete or review
 
-- LEG-005 Account Deletion Policy;
-- LEG-006 Legal Review;
+- LEG-006 final pre-launch legal review;
+- complete LEG-006 after Vercel Pro is active, payment methods are connected and AdSense/CMP are integrated;
 - final processor/DPA review before commercial launch;
 - document actual payment provider before activation;
 - implement/update CMP before advertising activation;
@@ -1029,6 +1161,8 @@ Planned providers must be reviewed before activation.
 - upgrade Vercel from Hobby to Pro or Enterprise before commercial launch;
 
 ---
+
+
 
 ## 21. Change-control rule
 
@@ -1051,6 +1185,8 @@ This register must be reviewed whenever any of the following occurs:
 - relevant privacy law or provider terms materially change.
 
 ---
+
+
 
 ## 22. Internal approval record
 
