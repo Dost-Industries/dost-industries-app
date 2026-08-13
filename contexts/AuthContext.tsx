@@ -46,10 +46,17 @@ export function AuthProvider({
 }: {
   children: ReactNode;
 }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] =
+    useState<User | null>(null);
+
   const [profile, setProfile] =
     useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [initialized, setInitialized] =
+    useState(false);
 
   useEffect(() => {
     let active = true;
@@ -60,13 +67,20 @@ export function AuthProvider({
           return;
         }
 
-        setLoading(true);
-
         if (!firebaseUser) {
           setUser(null);
           setProfile(null);
-          setLoading(false);
+
+          if (!initialized) {
+            setInitialized(true);
+            setLoading(false);
+          }
+
           return;
+        }
+
+        if (!initialized) {
+          setLoading(true);
         }
 
         try {
@@ -89,7 +103,7 @@ export function AuthProvider({
 
             setUser(null);
             setProfile(null);
-            setLoading(false);
+
             return;
           }
 
@@ -116,7 +130,11 @@ export function AuthProvider({
             setProfile(null);
           }
         } finally {
-          if (active) {
+          if (
+            active &&
+            !initialized
+          ) {
+            setInitialized(true);
             setLoading(false);
           }
         }
@@ -127,7 +145,7 @@ export function AuthProvider({
       active = false;
       unsubscribe();
     };
-  }, []);
+  }, [initialized]);
 
   const isVerified =
     Boolean(user?.emailVerified);
@@ -135,9 +153,13 @@ export function AuthProvider({
   const isAuthenticated =
     Boolean(user) && isVerified;
 
-  const isGuest = !isAuthenticated;
+  const isGuest =
+    !isAuthenticated;
 
-  if (loading) {
+  if (
+    loading &&
+    !initialized
+  ) {
     return <LoadingScreen />;
   }
 
