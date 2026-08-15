@@ -3,12 +3,20 @@ import {
 } from "./applyEntitlements";
 
 import {
+  removeProductEntitlements,
+} from "./removeEntitlements";
+
+import {
   createSubscriptionRecord,
 } from "./records";
 
 import {
   saveSubscriptionRecordServer,
 } from "./serverStorage";
+
+import {
+  subscriptionHasAccess,
+} from "./subscriptionLifecycle";
 
 import type {
   PaymentMethod,
@@ -37,6 +45,12 @@ export type ProcessSubscriptionParams = {
 export async function processSubscription(
   params: ProcessSubscriptionParams
 ): Promise<void> {
+  const currentPeriodStart =
+    params.currentPeriodStart ?? null;
+
+  const currentPeriodEnd =
+    params.currentPeriodEnd ?? null;
+
   const subscription =
     createSubscriptionRecord({
       id: params.id,
@@ -56,21 +70,34 @@ export async function processSubscription(
       status:
         params.status,
 
-      currentPeriodStart:
-        params.currentPeriodStart ?? null,
+      currentPeriodStart,
 
-      currentPeriodEnd:
-        params.currentPeriodEnd ?? null,
+      currentPeriodEnd,
     });
 
   await saveSubscriptionRecordServer(
     subscription
   );
 
-  if (params.status === "active") {
+  const hasAccess =
+    subscriptionHasAccess({
+      status:
+        params.status,
+
+      currentPeriodEnd,
+    });
+
+  if (hasAccess) {
     await applyProductEntitlements(
       params.userId,
       "dost-premium-monthly"
     );
+
+    return;
   }
+
+  await removeProductEntitlements(
+    params.userId,
+    "dost-premium-monthly"
+  );
 }
