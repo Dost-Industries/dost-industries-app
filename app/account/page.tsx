@@ -27,6 +27,10 @@ import {
 
 import { useAuth } from "../../hooks/useAuth";
 
+import {
+  startPayment,
+} from "../../lib/payments/client";
+
 import RestorePurchases from "../components/RestorePurchases";
 
 import SubscriptionManagement from "../components/SubscriptionManagement";
@@ -96,6 +100,16 @@ export default function AccountPage() {
     deletingCalculationId,
     setDeletingCalculationId,
   ] = useState<string | null>(null);
+
+  const [
+    testPaymentStarting,
+    setTestPaymentStarting,
+  ] = useState(false);
+
+  const [
+    testPaymentError,
+    setTestPaymentError,
+  ] = useState("");
 
   const hasSaveCalculations =
     hasEntitlement(
@@ -364,6 +378,53 @@ export default function AccountPage() {
     }
   }
 
+  async function handleTestPdfPayment() {
+    if (
+      testPaymentStarting ||
+      !user
+    ) {
+      return;
+    }
+
+    setTestPaymentStarting(true);
+    setTestPaymentError("");
+
+    try {
+      const idToken =
+        await user.getIdToken(true);
+
+      const payment =
+        await startPayment({
+          idToken,
+          provider: "mollie",
+          paymentMethod: "ideal",
+          product:
+            "professional-pdf-export",
+        });
+
+      if (!payment.checkoutUrl) {
+        throw new Error(
+          "PAYMENT_CHECKOUT_URL_MISSING"
+        );
+      }
+
+      window.location.assign(
+        payment.checkoutUrl
+      );
+    } catch (error) {
+      console.error(
+        "Mollie test payment could not be started:",
+        error
+      );
+
+      setTestPaymentError(
+        "The Mollie test payment could not be started."
+      );
+
+      setTestPaymentStarting(false);
+    }
+  }
+
   function formatDate(
     value: unknown
   ): string {
@@ -513,6 +574,45 @@ export default function AccountPage() {
                 >
                   Upgrade Soon
                 </button>
+              </div>
+            )}
+
+            {!hasPremiumAccess && (
+              <div className="mt-6 rounded-2xl border border-amber-500/25 bg-amber-500/5 p-5 sm:p-6">
+                <p className="text-xs uppercase tracking-[0.3em] text-amber-300">
+                  Mollie Test Mode
+                </p>
+
+                <h3 className="mt-3 text-xl font-semibold">
+                  Professional PDF Export
+                </h3>
+
+                <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+                  Start a temporary €1.29
+                  Mollie test payment. No real
+                  money will be charged.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    void handleTestPdfPayment()
+                  }
+                  disabled={
+                    testPaymentStarting
+                  }
+                  className="mt-5 w-full rounded-xl border border-amber-400/40 bg-amber-400/10 px-5 py-3 text-sm font-bold uppercase tracking-[0.18em] text-amber-200 transition hover:bg-amber-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {testPaymentStarting
+                    ? "Opening Mollie..."
+                    : "Test €1.29 PDF payment"}
+                </button>
+
+                {testPaymentError && (
+                  <p className="mt-3 rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                    {testPaymentError}
+                  </p>
+                )}
               </div>
             )}
 
