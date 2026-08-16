@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -128,6 +129,9 @@ export default function AccountPage() {
     setTestPaymentSuccess,
   ] = useState("");
 
+  const paymentReturnStartedRef =
+    useRef(false);
+
   const hasSaveCalculations =
     hasEntitlement(
       profile?.entitlements,
@@ -232,7 +236,7 @@ export default function AccountPage() {
       !isAuthenticated ||
       !isVerified ||
       !user.emailVerified ||
-      testPaymentProcessing
+      paymentReturnStartedRef.current
     ) {
       return;
     }
@@ -243,6 +247,11 @@ export default function AccountPage() {
     if (!pendingPayment) {
       return;
     }
+
+    const paymentToValidate =
+      pendingPayment;
+
+    paymentReturnStartedRef.current = true;
 
     let active = true;
 
@@ -259,13 +268,13 @@ export default function AccountPage() {
           await validatePayment({
             idToken,
             provider:
-              pendingPayment!.provider,
+              paymentToValidate.provider,
             paymentMethod:
-              pendingPayment!.paymentMethod,
+              paymentToValidate.paymentMethod,
             product:
-              pendingPayment!.product,
+              paymentToValidate.product,
             providerPurchaseId:
-              pendingPayment!.providerPurchaseId,
+              paymentToValidate.providerPurchaseId,
           });
 
         if (!active) {
@@ -315,7 +324,6 @@ export default function AccountPage() {
     user,
     isAuthenticated,
     isVerified,
-    testPaymentProcessing,
   ]);
 
   async function handleLogout() {
