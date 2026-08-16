@@ -29,7 +29,14 @@ import { useAuth } from "../../hooks/useAuth";
 
 import {
   startPayment,
+  validatePayment,
 } from "../../lib/payments/client";
+
+import {
+  clearPendingPayment,
+  getPendingPayment,
+  savePendingPayment,
+} from "../../lib/payments/pendingPayment";
 
 import RestorePurchases from "../components/RestorePurchases";
 
@@ -109,6 +116,16 @@ export default function AccountPage() {
   const [
     testPaymentError,
     setTestPaymentError,
+  ] = useState("");
+
+  const [
+    testPaymentProcessing,
+    setTestPaymentProcessing,
+  ] = useState(false);
+
+  const [
+    testPaymentSuccess,
+    setTestPaymentSuccess,
   ] = useState("");
 
   const hasSaveCalculations =
@@ -206,6 +223,99 @@ export default function AccountPage() {
     loading,
     user,
     hasSaveCalculations,
+  ]);
+
+  useEffect(() => {
+    if (
+      loading ||
+      !user ||
+      !isAuthenticated ||
+      !isVerified ||
+      !user.emailVerified ||
+      testPaymentProcessing
+    ) {
+      return;
+    }
+
+    const pendingPayment =
+      getPendingPayment();
+
+    if (!pendingPayment) {
+      return;
+    }
+
+    let active = true;
+
+    async function processReturnedPayment() {
+      setTestPaymentProcessing(true);
+      setTestPaymentError("");
+      setTestPaymentSuccess("");
+
+      try {
+        const idToken =
+          await user!.getIdToken(true);
+
+        const result =
+          await validatePayment({
+            idToken,
+            provider:
+              pendingPayment!.provider,
+            paymentMethod:
+              pendingPayment!.paymentMethod,
+            product:
+              pendingPayment!.product,
+            providerPurchaseId:
+              pendingPayment!.providerPurchaseId,
+          });
+
+        if (!active) {
+          return;
+        }
+
+        clearPendingPayment();
+
+        if (result.processed) {
+          setTestPaymentSuccess(
+            result.pdfExportCreditsGranted === 1
+              ? "Payment verified. 1 Professional PDF Export credit has been added."
+              : "Payment verified successfully."
+          );
+        } else {
+          setTestPaymentSuccess(
+            "This payment was already processed."
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Returned Mollie payment could not be processed:",
+          error
+        );
+
+        if (active) {
+          clearPendingPayment();
+
+          setTestPaymentError(
+            "The returned Mollie payment could not be verified."
+          );
+        }
+      } finally {
+        if (active) {
+          setTestPaymentProcessing(false);
+        }
+      }
+    }
+
+    void processReturnedPayment();
+
+    return () => {
+      active = false;
+    };
+  }, [
+    loading,
+    user,
+    isAuthenticated,
+    isVerified,
+    testPaymentProcessing,
   ]);
 
   async function handleLogout() {
@@ -408,6 +518,15 @@ export default function AccountPage() {
         );
       }
 
+      savePendingPayment({
+        provider: "mollie",
+        paymentMethod: "ideal",
+        product:
+          "professional-pdf-export",
+        providerPurchaseId:
+          payment.providerPurchaseId,
+      });
+
       window.location.assign(
         payment.checkoutUrl
       );
@@ -599,18 +718,27 @@ export default function AccountPage() {
                     void handleTestPdfPayment()
                   }
                   disabled={
-                    testPaymentStarting
+                    testPaymentStarting ||
+                    testPaymentProcessing
                   }
                   className="mt-5 w-full rounded-xl border border-amber-400/40 bg-amber-400/10 px-5 py-3 text-sm font-bold uppercase tracking-[0.18em] text-amber-200 transition hover:bg-amber-400/15 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {testPaymentStarting
                     ? "Opening Mollie..."
-                    : "Test €1.29 PDF payment"}
+                    : testPaymentProcessing
+                      ? "Verifying payment..."
+                      : "Test €1.29 PDF payment"}
                 </button>
 
                 {testPaymentError && (
                   <p className="mt-3 rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-300">
                     {testPaymentError}
+                  </p>
+                )}
+
+                {testPaymentSuccess && (
+                  <p className="mt-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+                    {testPaymentSuccess}
                   </p>
                 )}
               </div>
