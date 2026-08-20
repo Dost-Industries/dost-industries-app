@@ -14,6 +14,10 @@ import {
 } from "../../../../../lib/payments/mollieClient";
 
 import {
+  MOLLIE_PREMIUM_FIRST_PAYMENT_FLOW,
+} from "../../../../../lib/payments/molliePremiumService";
+
+import {
   syncSubscriptionAccess,
 } from "../../../../../lib/subscription-access";
 
@@ -34,6 +38,22 @@ const PREMIUM_PRODUCT =
 
 const PREMIUM_SUBSCRIPTION_FLOW =
   "dost-premium-subscription" as const;
+
+type PremiumRevocationReason =
+  | "REFUND"
+  | "CHARGEBACK";
+
+type PremiumPaymentFinancialState = {
+  paymentAmountCents: number;
+  refundedAmountCents: number;
+  refundedAmount: string;
+  fullRefund: boolean;
+  refundedIds: string[];
+  activeChargebackIds: string[];
+  revocationReason:
+    | PremiumRevocationReason
+    | null;
+};
 
 function readString(
   value: unknown
@@ -342,6 +362,266 @@ function mapDostSubscriptionStatus(
   }
 }
 
+function readRecord(
+  value: unknown
+): Record<string, unknown> | null {
+  if (
+    typeof value !== "object" ||
+    value === null
+  ) {
+    return null;
+  }
+
+  return value as Record<
+    string,
+    unknown
+  >;
+}
+
+function readAmountCents(
+  amount: unknown
+): number | null {
+  const record =
+    readRecord(amount);
+
+  const value =
+    readString(
+      record?.value
+    );
+
+  if (
+    !value ||
+    !/^\d+\.\d{2}$/.test(
+      value
+    )
+  ) {
+    return null;
+  }
+
+  const [whole, fraction] =
+    value.split(".");
+
+  const cents =
+    Number(whole) * 100 +
+    Number(fraction);
+
+  return Number.isSafeInteger(
+    cents
+  )
+    ? cents
+    : null;
+}
+
+function formatAmountCents(
+  cents: number
+): string {
+  return (
+    cents / 100
+  ).toFixed(2);
+}
+
+async function inspectPremiumPaymentFinancialState(
+  mollie: ReturnType<
+    typeof getMollieClient
+  >,
+  paymentId: string,
+  paymentAmount: unknown
+): Promise<PremiumPaymentFinancialState> {
+  const paymentAmountCents =
+    readAmountCents(
+      paymentAmount
+    );
+
+  if (
+    paymentAmountCents === null ||
+    paymentAmountCents <= 0
+  ) {
+    throw new Error(
+      "MOLLIE_PAYMENT_AMOUNT_INVALID"
+    );
+  }
+
+  /*
+   * Refunds and chargebacks are separate
+   * Mollie resources. A payment can remain
+   * `paid` while either of these exists, so
+   * payment.status alone is not sufficient.
+   */
+  const [
+    refunds,
+    chargebacks,
+  ] = await Promise.all([
+    mollie.paymentRefunds.page({
+      paymentId,
+      limit: 250,
+    }),
+    mollie.paymentChargebacks.page({
+      paymentId,
+      limit: 250,
+    }),
+  ]);
+
+  let refundedAmountCents = 0;
+  const refundedIds: string[] = [];
+
+  for (const refund of refunds) {
+    if (
+      readString(
+        refund.status
+      ) !== "refunded"
+    ) {
+      continue;
+    }
+
+    const refundAmountCents =
+      readAmountCents(
+        refund.amount
+      );
+
+    if (
+      refundAmountCents === null
+    ) {
+      throw new Error(
+        "MOLLIE_REFUND_AMOUNT_INVALID"
+      );
+    }
+
+    refundedAmountCents +=
+      refundAmountCents;
+
+    const refundId =
+      readString(
+        refund.id
+      );
+
+    if (refundId) {
+      refundedIds.push(
+        refundId
+      );
+    }
+  }
+
+  const activeChargebackIds:
+    string[] = [];
+
+  for (
+    const chargeback of chargebacks
+  ) {
+    const reversedAt =
+      toDate(
+        chargeback.reversedAt
+      );
+
+    if (reversedAt) {
+      continue;
+    }
+
+    const chargebackId =
+      readString(
+        chargeback.id
+      );
+
+    if (chargebackId) {
+      activeChargebackIds.push(
+        chargebackId
+      );
+    }
+  }
+
+  const fullRefund =
+    refundedAmountCents >=
+    paymentAmountCents;
+
+  const revocationReason:
+    | PremiumRevocationReason
+    | null =
+    activeChargebackIds.length > 0
+      ? "CHARGEBACK"
+      : fullRefund
+        ? "REFUND"
+        : null;
+
+  return {
+    paymentAmountCents,
+    refundedAmountCents,
+    refundedAmount:
+      formatAmountCents(
+        refundedAmountCents
+      ),
+    fullRefund,
+    refundedIds,
+    activeChargebackIds,
+    revocationReason,
+  };
+}
+
+function applyPremiumFinancialState(
+  billingUpdate: Record<
+    string,
+    unknown
+  >,
+  paymentId: string,
+  financialState:
+    PremiumPaymentFinancialState
+): void {
+  billingUpdate[
+    "premiumLastFinancialReviewPaymentId"
+  ] = paymentId;
+
+  billingUpdate[
+    "premiumLastFinancialReviewAt"
+  ] = FieldValue.serverTimestamp();
+
+  billingUpdate[
+    "premiumLastRefundedAmount"
+  ] = financialState.refundedAmount;
+
+  billingUpdate[
+    "premiumLastRefundIsFull"
+  ] = financialState.fullRefund;
+
+  billingUpdate[
+    "premiumLastRefundIds"
+  ] = financialState.refundedIds;
+
+  billingUpdate[
+    "premiumLastActiveChargebackIds"
+  ] =
+    financialState.activeChargebackIds;
+
+  if (
+    !financialState.revocationReason
+  ) {
+    return;
+  }
+
+  billingUpdate[
+    "premiumRevocationReason"
+  ] =
+    financialState.revocationReason;
+
+  billingUpdate[
+    "premiumRevokedPaymentId"
+  ] = paymentId;
+
+  billingUpdate[
+    "premiumRevokedAt"
+  ] = FieldValue.serverTimestamp();
+
+  /*
+   * A financial revocation is immediate.
+   * It must not preserve paid-through
+   * access from an earlier cancellation.
+   */
+  billingUpdate[
+    "premiumAccessUntil"
+  ] = FieldValue.delete();
+
+  billingUpdate[
+    "premiumCancelAtPeriodEnd"
+  ] = FieldValue.delete();
+}
+
 function getSafeErrorName(
   error: unknown
 ): string {
@@ -409,25 +689,6 @@ export async function POST(
         payment.subscriptionId
       );
 
-    /*
-     * Existing one-time payments and
-     * the first DOST Premium payment do
-     * not have a subscriptionId.
-     * Keep their current flow unchanged.
-     */
-    if (!subscriptionId) {
-      return NextResponse.json(
-        {
-          received: true,
-          processed:
-            "non-subscription-payment",
-        },
-        {
-          status: 200,
-        }
-      );
-    }
-
     const customerId =
       readString(
         payment.customerId
@@ -450,6 +711,217 @@ export async function POST(
         payment.metadata,
         "flow"
       );
+
+    /*
+     * Existing one-time purchases still
+     * stay outside this subscription
+     * webhook flow. The one exception is
+     * the first DOST Premium payment: it
+     * has no subscriptionId, but a later
+     * refund or chargeback must still be
+     * able to revoke Premium access.
+     */
+    if (!subscriptionId) {
+      if (
+        product !== PREMIUM_PRODUCT ||
+        flow !==
+          MOLLIE_PREMIUM_FIRST_PAYMENT_FLOW
+      ) {
+        return NextResponse.json(
+          {
+            received: true,
+            processed:
+              "non-subscription-payment",
+          },
+          {
+            status: 200,
+          }
+        );
+      }
+
+      const metadataCustomerId =
+        readMetadataString(
+          payment.metadata,
+          "customerId"
+        );
+
+      if (
+        !customerId ||
+        !userId ||
+        metadataCustomerId !==
+          customerId
+      ) {
+        console.warn(
+          "Mollie Premium first-payment webhook ignored: metadata mismatch."
+        );
+
+        return NextResponse.json(
+          {
+            received: true,
+            ignored: true,
+            reason:
+              "PREMIUM_FIRST_PAYMENT_METADATA_MISMATCH",
+          },
+          {
+            status: 200,
+          }
+        );
+      }
+
+      const firestore =
+        getAdminFirestore();
+
+      const userReference =
+        firestore
+          .collection("users")
+          .doc(userId);
+
+      const userSnapshot =
+        await userReference.get();
+
+      if (!userSnapshot.exists) {
+        console.warn(
+          "Mollie Premium first-payment webhook ignored: DOST user profile missing."
+        );
+
+        return NextResponse.json(
+          {
+            received: true,
+            ignored: true,
+            reason:
+              "USER_PROFILE_MISSING",
+          },
+          {
+            status: 200,
+          }
+        );
+      }
+
+      const userData =
+        userSnapshot.data();
+
+      const storedCustomerId =
+        readBillingString(
+          userData,
+          "pendingPremiumCustomerId"
+        ) ??
+        readBillingString(
+          userData,
+          "mollieCustomerId"
+        );
+
+      const storedFirstPaymentId =
+        readBillingString(
+          userData,
+          "pendingPremiumPaymentId"
+        ) ??
+        readBillingString(
+          userData,
+          "premiumFirstPaymentId"
+        );
+
+      if (
+        storedCustomerId !==
+          customerId ||
+        storedFirstPaymentId !==
+          payment.id
+      ) {
+        console.warn(
+          "Mollie Premium first-payment webhook ignored: stored billing identity mismatch."
+        );
+
+        return NextResponse.json(
+          {
+            received: true,
+            ignored: true,
+            reason:
+              "STORED_PREMIUM_FIRST_PAYMENT_IDENTITY_MISMATCH",
+          },
+          {
+            status: 200,
+          }
+        );
+      }
+
+      const financialState =
+        await inspectPremiumPaymentFinancialState(
+          mollie,
+          payment.id,
+          payment.amount
+        );
+
+      const billingUpdate: Record<
+        string,
+        unknown
+      > = {};
+
+      applyPremiumFinancialState(
+        billingUpdate,
+        payment.id,
+        financialState
+      );
+
+      await userReference.set(
+        {
+          billing:
+            billingUpdate,
+
+          updatedAt:
+            FieldValue.serverTimestamp(),
+        },
+        {
+          merge: true,
+        }
+      );
+
+      if (
+        financialState.revocationReason
+      ) {
+        await syncSubscriptionAccess(
+          firestore,
+          userId,
+          {
+            id:
+              SUBSCRIPTIONS.DOST_PREMIUM,
+
+            status:
+              "INACTIVE",
+          }
+        );
+      }
+
+      return NextResponse.json(
+        {
+          received: true,
+          processed:
+            financialState.revocationReason
+              ? "premium-first-payment-revoked"
+              : "premium-first-payment-reviewed",
+
+          revoked:
+            Boolean(
+              financialState.revocationReason
+            ),
+
+          revocationReason:
+            financialState.revocationReason,
+
+          refundedAmount:
+            financialState.refundedAmount,
+
+          fullRefund:
+            financialState.fullRefund,
+
+          activeChargebackCount:
+            financialState
+              .activeChargebackIds
+              .length,
+        },
+        {
+          status: 200,
+        }
+      );
+    }
 
     if (
       !customerId ||
@@ -641,6 +1113,13 @@ export async function POST(
         subscription.status
       ) ?? "unknown";
 
+    const financialState =
+      await inspectPremiumPaymentFinancialState(
+        mollie,
+        payment.id,
+        payment.amount
+      );
+
     const paidAt =
       paymentStatus === "paid"
         ? toDate(
@@ -726,11 +1205,13 @@ export async function POST(
 
     const dostSubscriptionStatus:
       DostSubscriptionStatus =
-      paidAccessStillActive
-        ? "ACTIVE"
-        : mapDostSubscriptionStatus(
-            mollieSubscriptionStatus
-          );
+      financialState.revocationReason
+        ? "INACTIVE"
+        : paidAccessStillActive
+          ? "ACTIVE"
+          : mapDostSubscriptionStatus(
+              mollieSubscriptionStatus
+            );
 
     const billingUpdate: Record<
       string,
@@ -757,7 +1238,14 @@ export async function POST(
         FieldValue.serverTimestamp(),
     };
 
+    applyPremiumFinancialState(
+      billingUpdate,
+      payment.id,
+      financialState
+    );
+
     if (
+      !financialState.revocationReason &&
       paidAccessStillActive &&
       currentPeriodEnd
     ) {
@@ -839,6 +1327,30 @@ export async function POST(
 
             lastPaymentStatus:
               paymentStatus,
+
+            lastRefundedAmount:
+              financialState.refundedAmount,
+
+            lastRefundIsFull:
+              financialState.fullRefund,
+
+            lastActiveChargebackIds:
+              financialState.activeChargebackIds,
+
+            ...(financialState.revocationReason
+              ? {
+                  lastAccessRevocationReason:
+                    financialState.revocationReason,
+
+                  lastAccessRevokedPaymentId:
+                    payment.id,
+
+                  lastAccessRevokedAt:
+                    Timestamp.fromDate(
+                      now
+                    ),
+                }
+              : {}),
           },
           {
             merge: true,
@@ -889,14 +1401,31 @@ export async function POST(
       {
         received: true,
         processed:
-          "subscription-payment",
+          financialState.revocationReason
+            ? "subscription-payment-revoked"
+            : "subscription-payment",
         paymentStatus,
         subscriptionStatus:
           mollieSubscriptionStatus,
         accessStatus:
           dostSubscriptionStatus,
 
+        revocationReason:
+          financialState.revocationReason,
+
+        refundedAmount:
+          financialState.refundedAmount,
+
+        fullRefund:
+          financialState.fullRefund,
+
+        activeChargebackCount:
+          financialState
+            .activeChargebackIds
+            .length,
+
         accessUntil:
+          !financialState.revocationReason &&
           paidAccessStillActive &&
           currentPeriodEnd
             ? currentPeriodEnd.toISOString()
