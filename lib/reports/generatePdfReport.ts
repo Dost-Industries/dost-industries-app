@@ -15,12 +15,15 @@ export type PdfReportField = {
   highlight?: boolean;
 };
 
-export type PdfReportLogo = {
+export type PdfReportImage = {
   bytes: Uint8Array;
   mimeType:
     | "image/png"
     | "image/jpeg";
 };
+
+export type PdfReportLogo =
+  PdfReportImage;
 
 export type PdfReportTheme =
   | "digital"
@@ -49,6 +52,8 @@ export type GeneratePdfReportInput = {
   formula?: string | null;
 
   logo?: PdfReportLogo | null;
+
+  photos?: PdfReportImage[];
 
   reportTheme?: PdfReportTheme;
 
@@ -596,6 +601,7 @@ type ReportIconKind =
   | "gauge"
   | "flame"
   | "sliders"
+  | "image"
   | "result";
 
 function drawIconLine(
@@ -874,6 +880,59 @@ function drawReportIcon(
     });
 
     drawIconLine(page, theme, centerX, bottom + 2, centerX + 1, centerY + 2, 0.8);
+    return;
+  }
+
+  if (kind === "image") {
+    page.drawRectangle({
+      x: left,
+      y: bottom + 1,
+      width: size,
+      height: size - 2,
+      borderColor:
+        theme.accent,
+      borderWidth: 0.85,
+    });
+
+    page.drawCircle({
+      x: right - 3.5,
+      y: top - 4,
+      size: 1.2,
+      borderColor:
+        theme.accent,
+      borderWidth: 0.75,
+    });
+
+    drawIconLine(
+      page,
+      theme,
+      left + 2,
+      bottom + 3,
+      centerX - 1,
+      centerY + 1,
+      0.8
+    );
+
+    drawIconLine(
+      page,
+      theme,
+      centerX - 1,
+      centerY + 1,
+      centerX + 2,
+      centerY - 2,
+      0.8
+    );
+
+    drawIconLine(
+      page,
+      theme,
+      centerX + 2,
+      centerY - 2,
+      right - 2,
+      bottom + 3,
+      0.8
+    );
+
     return;
   }
 
@@ -1331,6 +1390,54 @@ async function embedLogo(
   }
 
   return null;
+}
+
+async function embedReportImages(
+  pdfDocument: PDFDocument,
+  images:
+    | PdfReportImage[]
+    | null
+    | undefined
+): Promise<PDFImage[]> {
+  if (!images?.length) {
+    return [];
+  }
+
+  const embeddedImages:
+    PDFImage[] = [];
+
+  for (
+    const image of images.slice(
+      0,
+      3
+    )
+  ) {
+    if (
+      image.mimeType ===
+      "image/png"
+    ) {
+      embeddedImages.push(
+        await pdfDocument.embedPng(
+          image.bytes
+        )
+      );
+
+      continue;
+    }
+
+    if (
+      image.mimeType ===
+      "image/jpeg"
+    ) {
+      embeddedImages.push(
+        await pdfDocument.embedJpg(
+          image.bytes
+        )
+      );
+    }
+  }
+
+  return embeddedImages;
 }
 
 function drawLogoArea(
@@ -1846,32 +1953,12 @@ function drawTitleArea(
     {
       x: titleX,
       y: titleY,
-      size: 27,
+      size: 20,
       font: fonts.bold,
       color:
         theme.text,
     }
   );
-
-  page.drawLine({
-    start: {
-      x: titleX,
-      y: titleY + 8,
-    },
-    end: {
-      x: titleX + 64,
-      y: titleY + 8,
-    },
-    thickness: 0.75,
-    color: theme.faint,
-  });
-
-  page.drawCircle({
-    x: titleX + 69,
-    y: titleY + 8,
-    size: 1.6,
-    color: theme.accent,
-  });
 
   drawHexagonBadge(
     page,
@@ -1886,7 +1973,7 @@ function drawTitleArea(
     {
       x: titleX + 18,
       y: titleY - 23,
-      size: 9.5,
+      size: 8.2,
       font: fonts.bold,
       color:
         theme.accent,
@@ -2223,6 +2310,10 @@ function drawResultPanel(
   item:
     | PdfReportField
     | null,
+  formula:
+    | string
+    | null
+    | undefined,
   x: number,
   y: number,
   width: number,
@@ -2261,15 +2352,21 @@ function drawResultPanel(
     7.4
   );
 
+  const resultCenterY =
+    y +
+    height /
+      2 +
+    20;
+
   drawHexagonOutline(
     page,
     theme.border,
     x + width / 2,
-    y + height / 2 + 4,
+    resultCenterY,
     Math.min(
       width,
       height
-    ) * 0.32,
+    ) * 0.27,
     1
   );
 
@@ -2277,11 +2374,11 @@ function drawResultPanel(
     page,
     theme.faint,
     x + width / 2,
-    y + height / 2 + 4,
+    resultCenterY,
     Math.min(
       width,
       height
-    ) * 0.36,
+    ) * 0.31,
     0.55
   );
 
@@ -2297,11 +2394,11 @@ function drawResultPanel(
   const maxPrimarySize =
     result.primary.length >
       10
-      ? 24
+      ? 22
       : result.primary.length >
           6
-        ? 34
-        : 46;
+        ? 31
+        : 42;
 
   const primaryWidth =
     fonts.bold.widthOfTextAtSize(
@@ -2318,10 +2415,8 @@ function drawResultPanel(
           primaryWidth) /
           2,
       y:
-        y +
-        height /
-          2 -
-        4,
+        resultCenterY -
+        9,
       size:
         maxPrimarySize,
       font: fonts.bold,
@@ -2331,7 +2426,7 @@ function drawResultPanel(
   );
 
   if (result.unit) {
-    const unitSize = 15;
+    const unitSize = 13;
 
     const unitWidth =
       fonts.regular.widthOfTextAtSize(
@@ -2348,10 +2443,8 @@ function drawResultPanel(
             unitWidth) /
             2,
         y:
-          y +
-          height /
-            2 -
-          29,
+          resultCenterY -
+          31,
         size: unitSize,
         font:
           fonts.regular,
@@ -2361,146 +2454,83 @@ function drawResultPanel(
     );
   }
 
+  const formulaDividerY =
+    y + 50;
+
   page.drawLine({
     start: {
-      x: x + 32,
-      y: y + 32,
+      x: x + 16,
+      y: formulaDividerY,
     },
     end: {
       x:
         x +
         width -
-        32,
-      y: y + 32,
+        16,
+      y: formulaDividerY,
     },
-    thickness: 0.7,
+    thickness: 0.6,
     color:
-      theme.accent,
+      theme.divider,
   });
-}
 
-function parseFractionFormula(
-  formula: string
-): {
-  left: string;
-  numerator: string;
-  denominator: string;
-  suffix: string;
-} | null {
-  const normalized =
+  drawLabel(
+    page,
+    fonts,
+    theme,
+    "Formula Used",
+    x + 16,
+    y + 34,
+    6.4
+  );
+
+  const normalizedFormula =
     normalizeText(formula);
 
-  const match =
-    /^(.+?)=\s*\((.+)\)\s*\/\s*\((.+)\)\s*(.*)$/i.exec(
-      normalized
-    );
+  const formulaText =
+    normalizedFormula ||
+    "No formula supplied";
 
-  if (!match) {
-    return null;
-  }
+  const formulaLines =
+    wrapText(
+      formulaText,
+      fonts.regular,
+      7.2,
+      width - 32
+    ).slice(0, 2);
 
-  return {
-    left:
-      `${normalizeText(
-        match[1]
-      )}=`,
-    numerator:
-      normalizeText(
-        match[2]
-      ),
-    denominator:
-      normalizeText(
-        match[3]
-      ),
-    suffix:
-      normalizeText(
-        match[4]
-      ),
-  };
-}
-
-function buildFormulaLegend(
-  data: PdfReportField[]
-): string[] {
-  const legend: string[] = [];
-
-  const hasLabel = (
-    pattern: RegExp
-  ) =>
-    data.some(
-      (item) =>
-        pattern.test(
-          normalizeText(
-            item.label
-          )
-        )
-    );
-
-  if (
-    hasLabel(/voltage/i)
-  ) {
-    legend.push(
-      "V   =   Voltage (V)"
-    );
-  }
-
-  if (
-    hasLabel(/amperage/i)
-  ) {
-    legend.push(
-      "A   =   Amperage (A)"
-    );
-  }
-
-  if (
-    hasLabel(
-      /travel\s*speed/i
-    )
-  ) {
-    legend.push(
-      "S   =   Travel speed (mm/min)"
-    );
-  }
-
-  if (
-    hasLabel(
-      /k[-\s]*factor|efficiency/i
-    )
-  ) {
-    legend.push(
-      "k   =   Efficiency (K-factor)"
-    );
-  }
-
-  const highlighted =
-    getHighlightedItem(data);
-
-  if (
-    highlighted &&
-    /heat\s*input/i.test(
-      highlighted.label
-    )
-  ) {
-    legend.push(
-      "HI  =   Heat input (kJ/mm)"
-    );
-  }
-
-  return legend.slice(
-    0,
-    5
+  formulaLines.forEach(
+    (
+      line,
+      index
+    ) => {
+      page.drawText(
+        line,
+        {
+          x: x + 16,
+          y:
+            y +
+            18 -
+            index *
+              9,
+          size: 7.2,
+          font:
+            fonts.regular,
+          color:
+            normalizedFormula
+              ? theme.text
+              : theme.muted,
+        }
+      );
+    }
   );
 }
 
-function drawFormulaPanel(
+function drawPhotoPanel(
   page: PDFPage,
   fonts: ReportFonts,
   theme: ReportTheme,
-  formula:
-    | string
-    | null
-    | undefined,
-  data: PdfReportField[],
+  photos: PDFImage[],
   x: number,
   y: number,
   width: number,
@@ -2518,7 +2548,7 @@ function drawFormulaPanel(
   drawReportIcon(
     page,
     theme,
-    "sliders",
+    "image",
     x + 18,
     y + height - 18,
     12
@@ -2528,7 +2558,7 @@ function drawFormulaPanel(
     page,
     fonts,
     theme,
-    "Formula Used",
+    "Report Photos",
     x + 31,
     y +
       height -
@@ -2546,20 +2576,23 @@ function drawFormulaPanel(
     7
   );
 
-  const normalizedFormula =
-    normalizeText(formula);
+  const visiblePhotos =
+    photos.slice(0, 3);
 
-  if (!normalizedFormula) {
+  if (
+    visiblePhotos.length ===
+    0
+  ) {
     page.drawText(
-      "No formula supplied",
+      "No photos attached",
       {
         x: x + 16,
         y:
           y +
           height /
             2 -
-          4,
-        size: 9,
+          5,
+        size: 8.5,
         font:
           fonts.regular,
         color:
@@ -2570,256 +2603,115 @@ function drawFormulaPanel(
     return;
   }
 
-  const legend =
-    buildFormulaLegend(
-      data
-    );
+  const innerX =
+    x + 14;
 
-  const formulaAreaWidth =
-    legend.length > 0
-      ? width * 0.56
-      : width - 32;
+  const innerY =
+    y + 12;
 
-  const parsed =
-    parseFractionFormula(
-      normalizedFormula
-    );
+  const innerWidth =
+    width - 28;
 
-  if (parsed) {
-    const leftSize = 11;
+  const imageTop =
+    y +
+    height -
+    34;
 
-    const leftWidth =
-      fonts.regular.widthOfTextAtSize(
-        parsed.left,
-        leftSize
-      );
+  const innerHeight =
+    imageTop -
+    innerY;
 
-    const numeratorWidth =
-      fonts.regular.widthOfTextAtSize(
-        parsed.numerator,
-        10.5
-      );
+  const gap = 8;
 
-    const denominatorWidth =
-      fonts.regular.widthOfTextAtSize(
-        parsed.denominator,
-        10.5
-      );
+  const slotWidth =
+    (
+      innerWidth -
+      gap *
+        (
+          visiblePhotos.length -
+          1
+        )
+    ) /
+    visiblePhotos.length;
 
-    const fractionWidth =
-      Math.max(
-        numeratorWidth,
-        denominatorWidth
-      ) + 18;
+  visiblePhotos.forEach(
+    (
+      photo,
+      index
+    ) => {
+      const slotX =
+        innerX +
+        index *
+          (
+            slotWidth +
+            gap
+          );
 
-    const totalWidth =
-      leftWidth +
-      8 +
-      fractionWidth;
-
-    const startX =
-      x +
-      16 +
-      Math.max(
-        0,
-        (formulaAreaWidth -
-          16 -
-          totalWidth) /
-          2
-      );
-
-    const centerY =
-      y +
-      height /
-        2 -
-      2;
-
-    page.drawText(
-      parsed.left,
-      {
-        x: startX,
-        y:
-          centerY - 4,
-        size: leftSize,
-        font:
-          fonts.regular,
+      page.drawRectangle({
+        x: slotX,
+        y: innerY,
+        width:
+          slotWidth,
+        height:
+          innerHeight,
         color:
-          theme.text,
-      }
-    );
+          theme.panelAlt,
+        borderColor:
+          theme.border,
+        borderWidth: 0.5,
+      });
 
-    const fractionX =
-      startX +
-      leftWidth +
-      8;
+      const padding = 4;
 
-    const numeratorX =
-      fractionX +
-      (fractionWidth -
-        numeratorWidth) /
-        2;
+      const availableWidth =
+        slotWidth -
+        padding * 2;
 
-    const denominatorX =
-      fractionX +
-      (fractionWidth -
-        denominatorWidth) /
-        2;
+      const availableHeight =
+        innerHeight -
+        padding * 2;
 
-    page.drawText(
-      parsed.numerator,
-      {
-        x: numeratorX,
-        y:
-          centerY + 10,
-        size: 10.5,
-        font:
-          fonts.regular,
-        color:
-          theme.text,
-      }
-    );
+      const scale =
+        Math.min(
+          availableWidth /
+            photo.width,
+          availableHeight /
+            photo.height
+        );
 
-    page.drawLine({
-      start: {
-        x: fractionX,
-        y: centerY + 4,
-      },
-      end: {
-        x:
-          fractionX +
-          fractionWidth,
-        y: centerY + 4,
-      },
-      thickness: 0.8,
-      color:
-        theme.text,
-    });
+      const imageWidth =
+        photo.width *
+        scale;
 
-    page.drawText(
-      parsed.denominator,
-      {
-        x: denominatorX,
-        y:
-          centerY - 13,
-        size: 10.5,
-        font:
-          fonts.regular,
-        color:
-          theme.text,
-      }
-    );
+      const imageHeight =
+        photo.height *
+        scale;
 
-    if (parsed.suffix) {
-      page.drawText(
-        parsed.suffix,
+      page.drawImage(
+        photo,
         {
           x:
-            fractionX +
-            fractionWidth +
-            8,
+            slotX +
+            (
+              slotWidth -
+              imageWidth
+            ) /
+              2,
           y:
-            centerY - 4,
-          size: 8,
-          font:
-            fonts.regular,
-          color:
-            theme.muted,
+            innerY +
+            (
+              innerHeight -
+              imageHeight
+            ) /
+              2,
+          width:
+            imageWidth,
+          height:
+            imageHeight,
         }
       );
     }
-  } else {
-    const lines =
-      wrapText(
-        normalizedFormula,
-        fonts.regular,
-        9,
-        formulaAreaWidth -
-          32
-      ).slice(0, 3);
-
-    const totalHeight =
-      lines.length *
-      12;
-
-    lines.forEach(
-      (
-        line,
-        index
-      ) => {
-        const lineWidth =
-          fonts.regular.widthOfTextAtSize(
-            line,
-            9
-          );
-
-        page.drawText(
-          line,
-          {
-            x:
-              x +
-              16 +
-              Math.max(
-                0,
-                (formulaAreaWidth -
-                  32 -
-                  lineWidth) /
-                  2
-              ),
-            y:
-              y +
-              height /
-                2 +
-              totalHeight /
-                2 -
-              12 -
-              index *
-                12,
-            size: 9,
-            font:
-              fonts.regular,
-            color:
-              theme.text,
-          }
-        );
-      }
-    );
-  }
-
-  if (
-    legend.length > 0
-  ) {
-    const legendX =
-      x +
-      width * 0.6;
-
-    const legendTop =
-      y +
-      height -
-      31;
-
-    legend.forEach(
-      (
-        line,
-        index
-      ) => {
-        page.drawText(
-          line,
-          {
-            x:
-              legendX,
-            y:
-              legendTop -
-              index * 11,
-            size: 7.1,
-            font:
-              fonts.regular,
-            color:
-              theme.text,
-          }
-        );
-      }
-    );
-  }
+  );
 }
 
 function drawSignaturePanel(
@@ -3001,7 +2893,7 @@ function drawSignatureRow(
       gap * 2) /
     3;
 
-  const height = 142;
+  const height = 146;
   const y = 69;
 
   drawSignaturePanel(
@@ -3457,7 +3349,8 @@ function drawMainReportPage(
   fonts: ReportFonts,
   theme: ReportTheme,
   input: GeneratePdfReportInput,
-  logo: PDFImage | null
+  logo: PDFImage | null,
+  photos: PDFImage[]
 ) {
   drawPageBackground(
     page,
@@ -3494,8 +3387,8 @@ function drawMainReportPage(
       input.calculationData
     );
 
-  const mainY = 354;
-  const mainHeight = 216;
+  const mainY = 392;
+  const mainHeight = 188;
   const gap = 12;
 
   const inputWidth = 282;
@@ -3520,6 +3413,7 @@ function drawMainReportPage(
     fonts,
     theme,
     highlighted,
+    input.formula,
     MARGIN +
       inputWidth +
       gap,
@@ -3528,16 +3422,15 @@ function drawMainReportPage(
     mainHeight
   );
 
-  drawFormulaPanel(
+  drawPhotoPanel(
     page,
     fonts,
     theme,
-    input.formula,
-    input.calculationData,
+    photos,
     MARGIN,
-    229,
+    223,
     CONTENT_WIDTH,
-    105
+    155
   );
 
   drawSignatureRow(
@@ -3617,6 +3510,12 @@ export async function generatePdfReport(
       input.logo
     );
 
+  const embeddedPhotos =
+    await embedReportImages(
+      pdfDocument,
+      input.photos
+    );
+
   const pages: PDFPage[] = [];
 
   const mainPage =
@@ -3632,7 +3531,8 @@ export async function generatePdfReport(
     fonts,
     theme,
     input,
-    embeddedLogo
+    embeddedLogo,
+    embeddedPhotos
   );
 
   const inputItems =

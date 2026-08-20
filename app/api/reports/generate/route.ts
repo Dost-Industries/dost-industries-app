@@ -26,6 +26,7 @@ import {
 
 import {
   generatePdfReport,
+  type PdfReportImage,
   type PdfReportLogo,
   type PdfReportTheme,
 } from "../../../../lib/reports/generatePdfReport";
@@ -47,8 +48,21 @@ const SUPPORTED_LOGO_TYPES = [
   "image/jpeg",
 ] as const;
 
+const MAX_REPORT_PHOTOS = 3;
+
+const MAX_REPORT_PHOTO_SIZE =
+  1024 * 1024;
+
+const SUPPORTED_REPORT_PHOTO_TYPES = [
+  "image/png",
+  "image/jpeg",
+] as const;
+
 type SupportedLogoType =
   (typeof SUPPORTED_LOGO_TYPES)[number];
+
+type SupportedReportPhotoType =
+  (typeof SUPPORTED_REPORT_PHOTO_TYPES)[number];
 
 type PdfAccess =
   | {
@@ -400,6 +414,125 @@ async function readLogo(
   };
 }
 
+function isPngBytes(
+  bytes: Uint8Array
+): boolean {
+  return (
+    bytes.length >= 8 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47 &&
+    bytes[4] === 0x0d &&
+    bytes[5] === 0x0a &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0x0a
+  );
+}
+
+function isJpegBytes(
+  bytes: Uint8Array
+): boolean {
+  return (
+    bytes.length >= 3 &&
+    bytes[0] === 0xff &&
+    bytes[1] === 0xd8 &&
+    bytes[2] === 0xff
+  );
+}
+
+function hasMatchingImageSignature(
+  bytes: Uint8Array,
+  mimeType: SupportedReportPhotoType
+): boolean {
+  if (mimeType === "image/png") {
+    return isPngBytes(bytes);
+  }
+
+  return isJpegBytes(bytes);
+}
+
+async function readReportPhotos(
+  formData: FormData
+): Promise<PdfReportImage[]> {
+  const values =
+    formData.getAll("photos");
+
+  if (
+    values.length >
+    MAX_REPORT_PHOTOS
+  ) {
+    throw new ReportRequestError(
+      `A maximum of ${MAX_REPORT_PHOTOS} report photos is allowed.`
+    );
+  }
+
+  const photos: PdfReportImage[] =
+    [];
+
+  for (const value of values) {
+    if (
+      typeof value === "string"
+    ) {
+      throw new ReportRequestError(
+        "Report photo is invalid."
+      );
+    }
+
+    if (value.size === 0) {
+      throw new ReportRequestError(
+        "Report photo is empty."
+      );
+    }
+
+    if (
+      value.size >
+      MAX_REPORT_PHOTO_SIZE
+    ) {
+      throw new ReportRequestError(
+        "Each report photo must be smaller than 1 MB.",
+        413
+      );
+    }
+
+    if (
+      !SUPPORTED_REPORT_PHOTO_TYPES.includes(
+        value.type as SupportedReportPhotoType
+      )
+    ) {
+      throw new ReportRequestError(
+        "Report photos must be PNG, JPG or JPEG images."
+      );
+    }
+
+    const mimeType =
+      value.type as SupportedReportPhotoType;
+
+    const bytes =
+      new Uint8Array(
+        await value.arrayBuffer()
+      );
+
+    if (
+      !hasMatchingImageSignature(
+        bytes,
+        mimeType
+      )
+    ) {
+      throw new ReportRequestError(
+        "Report photo content does not match its image type."
+      );
+    }
+
+    photos.push({
+      bytes,
+      mimeType,
+    });
+  }
+
+  return photos;
+}
+
 async function resolvePdfAccess(
   userId: string
 ): Promise<PdfAccess | null> {
@@ -716,6 +849,11 @@ export async function POST(
         formData
       );
 
+    const photos =
+      await readReportPhotos(
+        formData
+      );
+
     const access =
       await resolvePdfAccess(
         decodedToken.uid
@@ -829,6 +967,8 @@ export async function POST(
           formula,
 
           logo,
+
+          photos,
 
           reportTheme,
         });

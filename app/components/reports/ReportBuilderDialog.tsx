@@ -37,6 +37,7 @@ export type ReportBuilderDetails = {
   preparedByRole: string;
   reportTheme: ReportTheme;
   logo: File | null;
+  photos: File[];
 };
 
 export type ReportDataItem = {
@@ -86,12 +87,21 @@ const ALLOWED_LOGO_TYPES = [
   "image/jpeg",
 ];
 
+const MAX_REPORT_PHOTOS = 3;
+
+const MAX_REPORT_PHOTO_SIZE =
+  10 * 1024 * 1024;
+
+const ALLOWED_REPORT_PHOTO_TYPES = [
+  "image/png",
+  "image/jpeg",
+];
+
 export default function ReportBuilderDialog({
   open,
   reportTitle,
   reportSubtitle,
   calculationData,
-  formula,
   entitlementText,
   generating = false,
   onClose,
@@ -149,6 +159,16 @@ export default function ReportBuilderDialog({
   ] = useState("");
 
   const [
+    photos,
+    setPhotos,
+  ] = useState<File[]>([]);
+
+  const [
+    photoError,
+    setPhotoError,
+  ] = useState("");
+
+  const [
     pdfAccess,
     setPdfAccess,
   ] = useState<PdfAccessStatus | null>(
@@ -190,6 +210,34 @@ export default function ReportBuilderDialog({
       }
     };
   }, [logoPreviewUrl]);
+
+  const photoPreviews =
+    useMemo(
+      () =>
+        photos.map(
+          (file) => ({
+            file,
+
+            url:
+              URL.createObjectURL(
+                file
+              ),
+          })
+        ),
+      [photos]
+    );
+
+  useEffect(() => {
+    return () => {
+      photoPreviews.forEach(
+        (preview) => {
+          URL.revokeObjectURL(
+            preview.url
+          );
+        }
+      );
+    };
+  }, [photoPreviews]);
 
   useEffect(() => {
     if (!open) {
@@ -405,6 +453,87 @@ export default function ReportBuilderDialog({
     setLogo(file);
   }
 
+  function handlePhotoChange(
+    event: ChangeEvent<HTMLInputElement>
+  ) {
+    setPhotoError("");
+
+    const selectedFiles =
+      Array.from(
+        event.target.files ?? []
+      );
+
+    event.target.value = "";
+
+    if (
+      selectedFiles.length === 0
+    ) {
+      return;
+    }
+
+    const availableSlots =
+      MAX_REPORT_PHOTOS -
+      photos.length;
+
+    if (
+      selectedFiles.length >
+      availableSlots
+    ) {
+      setPhotoError(
+        `You can attach up to ${MAX_REPORT_PHOTOS} report photos.`
+      );
+
+      return;
+    }
+
+    for (const file of selectedFiles) {
+      if (
+        !ALLOWED_REPORT_PHOTO_TYPES.includes(
+          file.type
+        )
+      ) {
+        setPhotoError(
+          "Use PNG, JPG or JPEG photos."
+        );
+
+        return;
+      }
+
+      if (
+        file.size >
+        MAX_REPORT_PHOTO_SIZE
+      ) {
+        setPhotoError(
+          "Each photo must be smaller than 10 MB."
+        );
+
+        return;
+      }
+    }
+
+    setPhotos(
+      (current) => [
+        ...current,
+        ...selectedFiles,
+      ]
+    );
+  }
+
+  function handleRemovePhoto(
+    indexToRemove: number
+  ) {
+    setPhotoError("");
+
+    setPhotos(
+      (current) =>
+        current.filter(
+          (_, index) =>
+            index !==
+            indexToRemove
+        )
+    );
+  }
+
   async function handleGenerate() {
     await onGenerate({
       projectName:
@@ -427,6 +556,8 @@ export default function ReportBuilderDialog({
       reportTheme,
 
       logo,
+
+      photos,
     });
   }
 
@@ -973,19 +1104,127 @@ export default function ReportBuilderDialog({
               </div>
             </section>
 
-            {formula && (
-              <section className="rounded-2xl border border-cyan-500/15 bg-[#010609] p-4 sm:p-5">
-                <p className="text-[0.62rem] font-semibold uppercase tracking-[0.25em] text-cyan-400">
-                  Calculation
-                </p>
+            <section className="rounded-2xl border border-cyan-500/20 bg-black/30 p-4 sm:p-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-[0.62rem] font-semibold uppercase tracking-[0.25em] text-cyan-400">
+                    Report Photos
+                  </p>
 
-                <div className="mt-4 overflow-x-auto">
-                  <p className="whitespace-nowrap text-center font-mono text-sm text-zinc-300 sm:text-base">
-                    {formula}
+                  <p className="mt-2 text-xs leading-relaxed text-zinc-500">
+                    Optional · Attach up to 3 photos to the PDF report.
                   </p>
                 </div>
-              </section>
-            )}
+
+                <p className="text-[0.58rem] font-semibold uppercase tracking-[0.16em] text-zinc-600">
+                  {photos.length}/{MAX_REPORT_PHOTOS}
+                </p>
+              </div>
+
+              {photoPreviews.length > 0 && (
+                <div
+                  className={`mt-5 grid gap-3 ${
+                    photoPreviews.length ===
+                    1
+                      ? "grid-cols-1"
+                      : photoPreviews.length ===
+                          2
+                        ? "grid-cols-2"
+                        : "grid-cols-3"
+                  }`}
+                >
+                  {photoPreviews.map(
+                    (
+                      preview,
+                      index
+                    ) => (
+                      <div
+                        key={`${preview.file.name}-${preview.file.size}-${preview.file.lastModified}-${index}`}
+                        className="group relative aspect-[4/3] overflow-hidden rounded-xl border border-cyan-500/20 bg-[#010609]"
+                      >
+                        <div
+                          className="absolute inset-0 bg-cover bg-center"
+                          style={{
+                            backgroundImage:
+                              `url(${preview.url})`,
+                          }}
+                        />
+
+                        <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-3 pb-2 pt-8">
+                          <p className="truncate text-[0.6rem] text-zinc-300">
+                            {
+                              preview.file
+                                .name
+                            }
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleRemovePhoto(
+                              index
+                            )
+                          }
+                          disabled={
+                            generating
+                          }
+                          aria-label={`Remove report photo ${index + 1}`}
+                          className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 bg-black/75 text-zinc-300 opacity-100 backdrop-blur-sm transition-all hover:border-red-400/50 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-40 sm:opacity-0 sm:group-hover:opacity-100"
+                        >
+                          <X
+                            size={15}
+                          />
+                        </button>
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+
+              {photos.length <
+                MAX_REPORT_PHOTOS && (
+                <label
+                  htmlFor="report-photos"
+                  className="mt-5 flex cursor-pointer items-center justify-center gap-3 rounded-xl border border-dashed border-cyan-400/30 bg-cyan-400/[0.04] px-4 py-5 text-center transition-all hover:border-cyan-300/60 hover:bg-cyan-400/[0.08]"
+                >
+                  <ImagePlus
+                    size={19}
+                    className="shrink-0 text-cyan-300"
+                  />
+
+                  <span>
+                    <span className="block text-xs font-semibold uppercase tracking-[0.15em] text-cyan-200">
+                      Add report photos
+                    </span>
+
+                    <span className="mt-1 block text-[0.68rem] text-zinc-500">
+                      PNG or JPG · Maximum 10 MB per photo
+                    </span>
+                  </span>
+
+                  <input
+                    id="report-photos"
+                    type="file"
+                    accept="image/png,image/jpeg"
+                    multiple
+                    disabled={
+                      generating
+                    }
+                    onChange={
+                      handlePhotoChange
+                    }
+                    className="sr-only"
+                  />
+                </label>
+              )}
+
+              {photoError && (
+                <p className="mt-3 text-xs text-red-400">
+                  {photoError}
+                </p>
+              )}
+            </section>
 
             {entitlementText && (
               <div className="rounded-xl border border-cyan-500/20 bg-cyan-400/[0.04] px-4 py-3 text-center text-xs text-cyan-200">
