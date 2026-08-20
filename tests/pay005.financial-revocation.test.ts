@@ -1,4 +1,7 @@
 import {
+    NextRequest,
+  } from "next/server";
+import {
     beforeEach,
     describe,
     expect,
@@ -233,8 +236,8 @@ import {
   }
 
   function createActivateRequest():
-    Request {
-    return new Request(
+  NextRequest {
+  return new NextRequest(
       "http://localhost/api/subscriptions/mollie/activate",
       {
         method: "POST",
