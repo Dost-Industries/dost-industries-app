@@ -13,6 +13,7 @@ import {
   getDoc,
   serverTimestamp,
   setDoc,
+  Timestamp,
   updateDoc,
 } from "firebase/firestore";
 
@@ -53,6 +54,33 @@ function premiumUserProfile(
     entitlements: [
       "save-calculations",
     ],
+  };
+}
+
+function canceledPremiumUserProfile(
+  uid: string,
+  email: string,
+  accessUntil: Date
+) {
+  return {
+    ...premiumUserProfile(
+      uid,
+      email
+    ),
+    subscription: {
+      id: "dost-premium",
+      status: "ACTIVE",
+    },
+    billing: {
+      mollieSubscriptionStatus:
+        "canceled",
+      premiumCancelAtPeriodEnd:
+        true,
+      premiumAccessUntil:
+        Timestamp.fromDate(
+          accessUntil
+        ),
+    },
   };
 }
 
@@ -860,6 +888,357 @@ describe(
               db,
               "users",
               uid,
+              "calculations",
+              "calculation-one"
+            )
+          )
+        );
+      }
+    );
+
+    test(
+      "a canceled Premium user can save while paid access is still active",
+      async () => {
+        const uid = "user-one";
+        const email =
+          "user-one@example.com";
+
+        const accessUntil =
+          new Date(
+            Date.now() +
+              60 * 60 * 1000
+          );
+
+        await testEnv
+          .withSecurityRulesDisabled(
+            async (context) => {
+              await setDoc(
+                doc(
+                  context.firestore(),
+                  "users",
+                  uid
+                ),
+                canceledPremiumUserProfile(
+                  uid,
+                  email,
+                  accessUntil
+                )
+              );
+            }
+          );
+
+        const db =
+          testEnv
+            .authenticatedContext(uid, {
+              email,
+            })
+            .firestore();
+
+        await assertSucceeds(
+          setDoc(
+            doc(
+              db,
+              "users",
+              uid,
+              "calculations",
+              "calculation-one"
+            ),
+            validCalculation()
+          )
+        );
+      }
+    );
+
+    test(
+      "a canceled Premium user can read while paid access is still active",
+      async () => {
+        const uid = "user-one";
+        const email =
+          "user-one@example.com";
+
+        const accessUntil =
+          new Date(
+            Date.now() +
+              60 * 60 * 1000
+          );
+
+        await testEnv
+          .withSecurityRulesDisabled(
+            async (context) => {
+              await setDoc(
+                doc(
+                  context.firestore(),
+                  "users",
+                  uid
+                ),
+                canceledPremiumUserProfile(
+                  uid,
+                  email,
+                  accessUntil
+                )
+              );
+
+              await setDoc(
+                doc(
+                  context.firestore(),
+                  "users",
+                  uid,
+                  "calculations",
+                  "calculation-one"
+                ),
+                validCalculation()
+              );
+            }
+          );
+
+        const db =
+          testEnv
+            .authenticatedContext(uid, {
+              email,
+            })
+            .firestore();
+
+        await assertSucceeds(
+          getDoc(
+            doc(
+              db,
+              "users",
+              uid,
+              "calculations",
+              "calculation-one"
+            )
+          )
+        );
+      }
+    );
+
+    test(
+      "stale save-calculations entitlement cannot save after canceled paid access expires",
+      async () => {
+        const uid = "user-one";
+        const email =
+          "user-one@example.com";
+
+        const accessUntil =
+          new Date(
+            Date.now() -
+              60 * 60 * 1000
+          );
+
+        await testEnv
+          .withSecurityRulesDisabled(
+            async (context) => {
+              await setDoc(
+                doc(
+                  context.firestore(),
+                  "users",
+                  uid
+                ),
+                canceledPremiumUserProfile(
+                  uid,
+                  email,
+                  accessUntil
+                )
+              );
+            }
+          );
+
+        const db =
+          testEnv
+            .authenticatedContext(uid, {
+              email,
+            })
+            .firestore();
+
+        await assertFails(
+          setDoc(
+            doc(
+              db,
+              "users",
+              uid,
+              "calculations",
+              "calculation-one"
+            ),
+            validCalculation()
+          )
+        );
+      }
+    );
+
+    test(
+      "stale save-calculations entitlement cannot read after canceled paid access expires",
+      async () => {
+        const uid = "user-one";
+        const email =
+          "user-one@example.com";
+
+        const accessUntil =
+          new Date(
+            Date.now() -
+              60 * 60 * 1000
+          );
+
+        await testEnv
+          .withSecurityRulesDisabled(
+            async (context) => {
+              await setDoc(
+                doc(
+                  context.firestore(),
+                  "users",
+                  uid
+                ),
+                canceledPremiumUserProfile(
+                  uid,
+                  email,
+                  accessUntil
+                )
+              );
+
+              await setDoc(
+                doc(
+                  context.firestore(),
+                  "users",
+                  uid,
+                  "calculations",
+                  "calculation-one"
+                ),
+                validCalculation()
+              );
+            }
+          );
+
+        const db =
+          testEnv
+            .authenticatedContext(uid, {
+              email,
+            })
+            .firestore();
+
+        await assertFails(
+          getDoc(
+            doc(
+              db,
+              "users",
+              uid,
+              "calculations",
+              "calculation-one"
+            )
+          )
+        );
+      }
+    );
+
+    test(
+      "a user can delete their own calculation after Premium access expires",
+      async () => {
+        const uid = "user-one";
+        const email =
+          "user-one@example.com";
+
+        const accessUntil =
+          new Date(
+            Date.now() -
+              60 * 60 * 1000
+          );
+
+        await testEnv
+          .withSecurityRulesDisabled(
+            async (context) => {
+              await setDoc(
+                doc(
+                  context.firestore(),
+                  "users",
+                  uid
+                ),
+                canceledPremiumUserProfile(
+                  uid,
+                  email,
+                  accessUntil
+                )
+              );
+
+              await setDoc(
+                doc(
+                  context.firestore(),
+                  "users",
+                  uid,
+                  "calculations",
+                  "calculation-one"
+                ),
+                validCalculation()
+              );
+            }
+          );
+
+        const db =
+          testEnv
+            .authenticatedContext(uid, {
+              email,
+            })
+            .firestore();
+
+        await assertSucceeds(
+          deleteDoc(
+            doc(
+              db,
+              "users",
+              uid,
+              "calculations",
+              "calculation-one"
+            )
+          )
+        );
+      }
+    );
+
+    test(
+      "a user cannot delete another user's calculation",
+      async () => {
+        await testEnv
+          .withSecurityRulesDisabled(
+            async (context) => {
+              await setDoc(
+                doc(
+                  context.firestore(),
+                  "users",
+                  "user-two"
+                ),
+                premiumUserProfile(
+                  "user-two",
+                  "user-two@example.com"
+                )
+              );
+
+              await setDoc(
+                doc(
+                  context.firestore(),
+                  "users",
+                  "user-two",
+                  "calculations",
+                  "calculation-one"
+                ),
+                validCalculation()
+              );
+            }
+          );
+
+        const db =
+          testEnv
+            .authenticatedContext(
+              "user-one",
+              {
+                email:
+                  "user-one@example.com",
+              }
+            )
+            .firestore();
+
+        await assertFails(
+          deleteDoc(
+            doc(
+              db,
+              "users",
+              "user-two",
               "calculations",
               "calculation-one"
             )

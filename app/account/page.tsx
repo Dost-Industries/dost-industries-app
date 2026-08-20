@@ -9,7 +9,9 @@ import {
 import { FirebaseError } from "firebase/app";
 
 import {
+  ArrowUpRight,
   Clock3,
+  Home,
   Trash2,
 } from "lucide-react";
 
@@ -47,6 +49,20 @@ import {
   ENTITLEMENTS,
   hasEntitlement,
 } from "../../lib/entitlements";
+
+import {
+  hasActiveDostPremiumSubscription,
+} from "../../lib/subscription-status";
+
+type PdfAccessState = {
+  canExport: boolean;
+  accessMode:
+    | "premium"
+    | "credit"
+    | "none";
+  premium: boolean;
+  availableCredits: number;
+};
 
 export default function AccountPage() {
   const router = useRouter();
@@ -129,7 +145,45 @@ export default function AccountPage() {
     setTestPaymentSuccess,
   ] = useState("");
 
+  const [
+    pdfAccess,
+    setPdfAccess,
+  ] = useState<PdfAccessState | null>(null);
+
+  const [
+    pdfAccessLoading,
+    setPdfAccessLoading,
+  ] = useState(false);
+
+  const [
+    pdfAccessError,
+    setPdfAccessError,
+  ] = useState("");
+
+  const [
+    pdfAccessRefreshKey,
+    setPdfAccessRefreshKey,
+  ] = useState(0);
+
+  const [
+    premiumCheckoutStarting,
+    setPremiumCheckoutStarting,
+  ] = useState(false);
+
+  const [
+    premiumCheckoutError,
+    setPremiumCheckoutError,
+  ] = useState("");
+
+  const [
+    premiumReturnProcessing,
+    setPremiumReturnProcessing,
+  ] = useState(false);
+
   const paymentReturnStartedRef =
+    useRef(false);
+
+  const premiumReturnStartedRef =
     useRef(false);
 
   const hasSaveCalculations =
@@ -139,18 +193,8 @@ export default function AccountPage() {
     );
 
   const hasPremiumAccess =
-    hasEntitlement(
-      profile?.entitlements,
-      ENTITLEMENTS.HEAT_INPUT_PREMIUM
-    ) ||
-    hasEntitlement(
-      profile?.entitlements,
-      ENTITLEMENTS.REMOVE_ADS
-    ) ||
-    hasSaveCalculations ||
-    hasEntitlement(
-      profile?.entitlements,
-      ENTITLEMENTS.PDF_EXPORT
+    hasActiveDostPremiumSubscription(
+      profile?.subscription
     );
 
   useEffect(() => {
@@ -172,6 +216,84 @@ export default function AccountPage() {
     isAuthenticated,
     isVerified,
     router,
+  ]);
+
+  useEffect(() => {
+    if (
+      loading ||
+      !user ||
+      !isAuthenticated ||
+      !isVerified ||
+      !user.emailVerified
+    ) {
+      return;
+    }
+
+    let active = true;
+
+    async function loadPdfAccess() {
+      setPdfAccessLoading(true);
+      setPdfAccessError("");
+
+      try {
+        const idToken =
+          await user!.getIdToken();
+
+        const response =
+          await fetch(
+            "/api/account/pdf-access",
+            {
+              method: "GET",
+              headers: {
+                Authorization:
+                  `Bearer ${idToken}`,
+              },
+              cache: "no-store",
+            }
+          );
+
+        if (!response.ok) {
+          throw new Error(
+            "PDF_ACCESS_REQUEST_FAILED"
+          );
+        }
+
+        const data =
+          (await response.json()) as PdfAccessState;
+
+        if (active) {
+          setPdfAccess(data);
+        }
+      } catch (error) {
+        console.error(
+          "Failed to load PDF export access:",
+          error
+        );
+
+        if (active) {
+          setPdfAccess(null);
+          setPdfAccessError(
+            "PDF export balance could not be loaded."
+          );
+        }
+      } finally {
+        if (active) {
+          setPdfAccessLoading(false);
+        }
+      }
+    }
+
+    void loadPdfAccess();
+
+    return () => {
+      active = false;
+    };
+  }, [
+    loading,
+    user,
+    isAuthenticated,
+    isVerified,
+    pdfAccessRefreshKey,
   ]);
 
   useEffect(() => {
@@ -283,6 +405,10 @@ export default function AccountPage() {
 
         clearPendingPayment();
 
+        setPdfAccessRefreshKey(
+          (current) => current + 1
+        );
+
         if (result.processed) {
           setTestPaymentSuccess(
             result.pdfExportCreditsGranted === 1
@@ -324,6 +450,181 @@ export default function AccountPage() {
     user,
     isAuthenticated,
     isVerified,
+  ]);
+
+  useEffect(() => {
+    if (
+      loading ||
+      !user ||
+      !isAuthenticated ||
+      !isVerified ||
+      !user.emailVerified ||
+      hasPremiumAccess ||
+      premiumReturnStartedRef.current
+    ) {
+      return;
+    }
+
+    const searchParams =
+      new URLSearchParams(
+        window.location.search
+      );
+
+    if (
+      searchParams.get(
+        "premiumReturn"
+      ) !== "1"
+    ) {
+      return;
+    }
+
+    premiumReturnStartedRef.current = true;
+
+    async function processPremiumReturn() {
+      setPremiumReturnProcessing(true);
+      setPremiumCheckoutError("");
+
+      try {
+        const idToken =
+          await user!.getIdToken(true);
+
+        const validateResponse =
+          await fetch(
+            "/api/subscriptions/mollie/validate",
+            {
+              method: "POST",
+
+              headers: {
+                Authorization:
+                  `Bearer ${idToken}`,
+              },
+
+              cache: "no-store",
+            }
+          );
+
+        const validateData =
+          (await validateResponse.json()) as {
+            validated?: boolean;
+            error?: string;
+            code?: string;
+            paymentStatus?: string;
+          };
+
+        if (!validateResponse.ok) {
+          if (
+            validateData.code ===
+            "PREMIUM_PAYMENT_NOT_PAID"
+          ) {
+            throw new Error(
+              "PREMIUM_PAYMENT_NOT_PAID"
+            );
+          }
+
+          throw new Error(
+            validateData.code ||
+              "PREMIUM_VALIDATION_FAILED"
+          );
+        }
+
+        if (!validateData.validated) {
+          throw new Error(
+            "PREMIUM_VALIDATION_FAILED"
+          );
+        }
+
+        const activateResponse =
+          await fetch(
+            "/api/subscriptions/mollie/activate",
+            {
+              method: "POST",
+
+              headers: {
+                Authorization:
+                  `Bearer ${idToken}`,
+              },
+
+              cache: "no-store",
+            }
+          );
+
+        const activateData =
+          (await activateResponse.json()) as {
+            activated?: boolean;
+            error?: string;
+            code?: string;
+          };
+
+        if (!activateResponse.ok) {
+          throw new Error(
+            activateData.code ||
+              "PREMIUM_ACTIVATION_FAILED"
+          );
+        }
+
+        if (!activateData.activated) {
+          throw new Error(
+            "PREMIUM_ACTIVATION_FAILED"
+          );
+        }
+
+        /*
+         * AuthContext loads the Firestore
+         * profile during app startup.
+         *
+         * A full navigation guarantees
+         * the freshly activated
+         * subscription + entitlements are
+         * loaded before Account renders
+         * the Premium state.
+         */
+        window.location.replace(
+          "/account?premium=active"
+        );
+      } catch (error) {
+        console.error(
+          "DOST Premium return could not be processed:",
+          error
+        );
+
+        const errorCode =
+          error instanceof Error
+            ? error.message
+            : "";
+
+        setPremiumCheckoutError(
+          errorCode ===
+            "PREMIUM_PAYMENT_NOT_PAID"
+            ? "DOST Premium payment was not completed."
+            : "DOST Premium could not be activated. Please try again."
+        );
+
+        /*
+         * Remove only the browser return
+         * marker. Server-side pending
+         * billing data remains available
+         * for recovery/retry.
+         */
+        window.history.replaceState(
+          null,
+          "",
+          "/account"
+        );
+
+        premiumReturnStartedRef.current =
+          false;
+
+        setPremiumReturnProcessing(false);
+      }
+    }
+
+    void processPremiumReturn();
+  }, [
+    loading,
+    user,
+    isAuthenticated,
+    isVerified,
+    hasPremiumAccess,
   ]);
 
   async function handleLogout() {
@@ -496,6 +797,88 @@ export default function AccountPage() {
     }
   }
 
+  async function handleStartPremiumCheckout() {
+    if (
+      premiumCheckoutStarting ||
+      premiumReturnProcessing ||
+      !user ||
+      hasPremiumAccess
+    ) {
+      return;
+    }
+
+    setPremiumCheckoutStarting(true);
+    setPremiumCheckoutError("");
+
+    try {
+      const idToken =
+        await user.getIdToken(true);
+
+      const response =
+        await fetch(
+          "/api/subscriptions/mollie/create",
+          {
+            method: "POST",
+
+            headers: {
+              Authorization:
+                `Bearer ${idToken}`,
+            },
+          }
+        );
+
+      const data =
+        (await response.json()) as {
+          checkoutUrl?: string;
+          error?: string;
+          code?: string;
+        };
+
+      if (!response.ok) {
+        if (
+          data.code ===
+          "PREMIUM_ALREADY_ACTIVE"
+        ) {
+          router.refresh();
+
+          throw new Error(
+            "DOST Premium is already active."
+          );
+        }
+
+        throw new Error(
+          data.error ||
+            "Unable to start DOST Premium checkout."
+        );
+      }
+
+      if (!data.checkoutUrl) {
+        throw new Error(
+          "MOLLIE_CHECKOUT_URL_MISSING"
+        );
+      }
+
+      window.location.assign(
+        data.checkoutUrl
+      );
+    } catch (error) {
+      console.error(
+        "DOST Premium checkout could not be started:",
+        error
+      );
+
+      setPremiumCheckoutError(
+        error instanceof Error &&
+          error.message ===
+            "DOST Premium is already active."
+          ? error.message
+          : "DOST Premium checkout could not be started."
+      );
+
+      setPremiumCheckoutStarting(false);
+    }
+  }
+
   async function handleTestPdfPayment() {
     if (
       testPaymentStarting ||
@@ -606,19 +989,33 @@ export default function AccountPage() {
       </div>
 
       <div className="relative z-10 mx-auto max-w-4xl">
-        <header className="mb-8 text-center sm:mb-10">
-          <h1 className="text-2xl font-black uppercase italic tracking-[0.24em] sm:text-4xl sm:tracking-[0.35em]">
+        <header className="relative mb-8 flex min-h-14 items-center justify-center text-center sm:mb-10 sm:min-h-16">
+          <button
+            type="button"
+            onClick={() =>
+              router.push("/")
+            }
+            aria-label="Go to DOST Industries home"
+            title="Home"
+            className="absolute left-0 flex h-11 w-11 items-center justify-center rounded-xl border border-cyan-500/30 bg-black/40 text-cyan-300 transition-all hover:border-cyan-300/70 hover:bg-cyan-400/10 hover:shadow-[0_0_22px_rgba(0,255,255,0.12)] sm:h-12 sm:w-12"
+          >
+            <Home size={19} />
+          </button>
+
+          <div>
+            <h1 className="text-2xl font-black uppercase italic tracking-[0.24em] sm:text-4xl sm:tracking-[0.35em]">
             <span className="text-white">
               DOST
             </span>{" "}
             <span className="text-cyan-400 drop-shadow-[0_0_18px_rgba(0,255,255,0.65)]">
               INDUSTRIES
             </span>
-          </h1>
+            </h1>
 
-          <p className="mt-2 text-[0.62rem] uppercase tracking-[0.38em] text-zinc-500 sm:text-xs">
-            Account Hub
-          </p>
+            <p className="mt-2 text-[0.62rem] uppercase tracking-[0.38em] text-zinc-500 sm:text-xs">
+              Account Hub
+            </p>
+          </div>
         </header>
 
         <section className="relative overflow-hidden rounded-[28px] border border-cyan-500/25 bg-black/55 p-5 shadow-[0_0_60px_rgba(0,255,255,0.10)] backdrop-blur-xl sm:p-8">
@@ -654,7 +1051,7 @@ export default function AccountPage() {
               </button>
             </div>
 
-            <div className="mt-7 grid gap-4 sm:grid-cols-2">
+            <div className="mt-7 grid gap-4 sm:grid-cols-3">
               <div className="rounded-2xl border border-cyan-500/20 bg-cyan-400/5 p-5">
                 <p className="text-xs uppercase tracking-[0.25em] text-zinc-500">
                   Access
@@ -672,11 +1069,53 @@ export default function AccountPage() {
                   Available Tool
                 </p>
 
-                <p className="mt-2 text-2xl font-semibold text-cyan-300">
-                  Heat Input
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push("/")
+                  }
+                  className="group mt-2 inline-flex items-center gap-2 text-left text-2xl font-semibold text-cyan-300 transition hover:text-cyan-200"
+                >
+                  <span className="border-b border-transparent transition group-hover:border-cyan-300/60">
+                    Heat Input
+                  </span>
+
+                  <ArrowUpRight
+                    size={18}
+                    className="transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                  />
+                </button>
+              </div>
+
+              <div className="rounded-2xl border border-cyan-500/20 bg-cyan-400/5 p-5">
+                <p className="text-xs uppercase tracking-[0.25em] text-zinc-500">
+                  PDF Exports
                 </p>
+
+                <p className="mt-2 text-2xl font-semibold text-cyan-300">
+                  {pdfAccessLoading
+                    ? "LOADING..."
+                    : pdfAccess?.premium
+                      ? "UNLIMITED"
+                      : `${pdfAccess?.availableCredits ?? 0} AVAILABLE`}
+                </p>
+
+                {!pdfAccessLoading &&
+  pdfAccess && (
+    <p className="mt-2 text-xs text-zinc-500">
+      {pdfAccess.premium
+        ? `${pdfAccess.availableCredits} purchased credits preserved`
+        : "Purchased PDF export credits"}
+    </p>
+  )}
               </div>
             </div>
+
+            {pdfAccessError && (
+              <p className="mt-3 rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                {pdfAccessError}
+              </p>
+            )}
 
             {!hasPremiumAccess && (
               <div className="mt-6 rounded-2xl border border-cyan-400/25 bg-black/45 p-5 sm:p-6">
@@ -697,10 +1136,27 @@ export default function AccountPage() {
 
                 <button
                   type="button"
-                  className="mt-5 rounded-xl border border-cyan-400/40 bg-cyan-400/10 px-5 py-3 text-sm font-bold uppercase tracking-[0.2em] text-cyan-300 transition hover:bg-cyan-400/15"
+                  onClick={() =>
+                    void handleStartPremiumCheckout()
+                  }
+                  disabled={
+                    premiumCheckoutStarting ||
+                    premiumReturnProcessing
+                  }
+                  className="mt-5 w-full rounded-xl border border-cyan-400/40 bg-cyan-400/10 px-5 py-3 text-sm font-bold uppercase tracking-[0.16em] text-cyan-300 transition hover:border-cyan-300/70 hover:bg-cyan-400/15 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                 >
-                  Upgrade Soon
+                  {premiumReturnProcessing
+                    ? "Activating DOST Premium..."
+                    : premiumCheckoutStarting
+                      ? "Opening Mollie..."
+                      : "Upgrade to DOST Premium — €4.99/month"}
                 </button>
+
+                {premiumCheckoutError && (
+                  <p className="mt-3 rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                    {premiumCheckoutError}
+                  </p>
+                )}
               </div>
             )}
 
@@ -719,6 +1175,20 @@ export default function AccountPage() {
                   Mollie test payment. No real
                   money will be charged.
                 </p>
+
+                <div className="mt-4 rounded-xl border border-amber-400/15 bg-black/25 px-4 py-3">
+                  <p className="text-[0.65rem] font-bold uppercase tracking-[0.18em] text-amber-300/70">
+                    Available PDF Exports
+                  </p>
+
+                  <p className="mt-1 text-lg font-semibold text-amber-100">
+                    {pdfAccessLoading
+                      ? "Loading..."
+                      : pdfAccess?.premium
+                        ? "Unlimited with DOST Premium"
+                        : `${pdfAccess?.availableCredits ?? 0}`}
+                  </p>
+                </div>
 
                 <button
                   type="button"

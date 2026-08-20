@@ -12,13 +12,49 @@ service cloud.firestore {
         && request.auth.uid == userId;
     }
 
-    function hasSaveCalculationsEntitlement(userId) {
+    function hasCanceledPremiumBilling(userData) {
+      return userData.keys().hasAll([
+          "billing"
+        ])
+        && userData.billing is map
+        && userData.billing.keys().hasAll([
+          "mollieSubscriptionStatus"
+        ])
+        && userData.billing.mollieSubscriptionStatus
+          == "canceled";
+    }
+
+    function hasUnexpiredCanceledPremiumAccess(userData) {
+      return userData.billing.keys().hasAll([
+          "premiumCancelAtPeriodEnd",
+          "premiumAccessUntil"
+        ])
+        && userData.billing.premiumCancelAtPeriodEnd
+          == true
+        && userData.billing.premiumAccessUntil
+          is timestamp
+        && userData.billing.premiumAccessUntil
+          > request.time;
+    }
+
+    function hasSaveCalculationsAccess(userId) {
+      let userData = get(
+        /databases/$(database)/documents/users/$(userId)
+      ).data;
+
       return isOwner(userId)
-        && get(
-          /databases/$(database)/documents/users/$(userId)
-        ).data.entitlements.hasAny([
+        && userData.entitlements is list
+        && userData.entitlements.hasAny([
           "save-calculations"
-        ]);
+        ])
+        && (
+          !hasCanceledPremiumBilling(
+            userData
+          )
+          || hasUnexpiredCanceledPremiumAccess(
+            userData
+          )
+        );
     }
 
     function hasValidUserFields() {
@@ -108,15 +144,21 @@ service cloud.firestore {
       allow delete: if isOwner(userId);
 
       match /calculations/{calculationId} {
-        allow read: if hasSaveCalculationsEntitlement(userId);
+        allow read: if hasSaveCalculationsAccess(userId);
 
-        allow create: if hasSaveCalculationsEntitlement(userId)
+        allow create: if hasSaveCalculationsAccess(userId)
                       && hasValidCalculationFields()
                       && hasValidCalculationValues();
 
         allow update: if false;
 
-        allow delete: if hasSaveCalculationsEntitlement(userId);
+        /*
+         * Deleting a user's own historical calculation remains
+         * allowed after Premium access ends. Expiry must block
+         * paid functionality, but it should not prevent a user
+         * from removing their own stored data.
+         */
+        allow delete: if isOwner(userId);
       }
     }
 

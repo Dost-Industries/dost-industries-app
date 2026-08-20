@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   Activity,
+  FileDown,
   Flame,
   Gauge,
   Menu,
@@ -19,6 +20,9 @@ import ResultCard from "./components/ResultCard";
 import AdBanner from "./components/AdBanner";
 import MoreTools from "./components/MoreTools";
 import NavigationMenu from "./components/NavigationMenu";
+import ReportBuilderDialog, {
+  type ReportBuilderDetails,
+} from "./components/reports/ReportBuilderDialog";
 
 import {
   calculateHeatInput,
@@ -87,6 +91,21 @@ export default function Home() {
     setSaveError,
   ] = useState("");
 
+  const [
+    reportBuilderOpen,
+    setReportBuilderOpen,
+  ] = useState(false);
+
+  const [
+    generatingReport,
+    setGeneratingReport,
+  ] = useState(false);
+
+  const [
+    reportError,
+    setReportError,
+  ] = useState("");
+
   const validationErrors =
     validateHeatInputFields(
       voltage,
@@ -114,6 +133,305 @@ export default function Home() {
       profile?.entitlements,
       ENTITLEMENTS.SAVE_CALCULATIONS
     );
+
+  const reportCalculationData = [
+    {
+      label: "Voltage",
+      value: voltage
+        ? `${voltage} V`
+        : "—",
+    },
+    {
+      label: "Amperage",
+      value: amperage
+        ? `${amperage} A`
+        : "—",
+    },
+    {
+      label: "Travel Speed",
+      value: speed
+        ? `${speed} mm/min`
+        : "—",
+    },
+    {
+      label: "Process",
+      value: processName,
+    },
+    {
+      label: "K-Factor",
+      value: useFactor
+        ? efficiency.toFixed(2)
+        : "Not applied",
+    },
+    {
+      label: "Heat Input",
+      value:
+        result !== null
+          ? `${result.toFixed(
+              2
+            )} kJ/mm`
+          : "—",
+      highlight: true,
+    },
+  ];
+
+  function handleOpenReportBuilder() {
+    setReportError("");
+
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+
+    if (result === null) {
+      setReportError(
+        "Complete the calculation before creating a report."
+      );
+
+      return;
+    }
+
+    setReportBuilderOpen(true);
+  }
+
+  async function handleGenerateReport(
+    details: ReportBuilderDetails
+  ) {
+    setReportError("");
+
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+
+    if (result === null) {
+      setReportError(
+        "Complete the calculation before creating a report."
+      );
+
+      return;
+    }
+
+    setGeneratingReport(true);
+
+    try {
+      const idToken =
+        await user.getIdToken();
+
+      const formData =
+        new FormData();
+
+      formData.set(
+        "moduleId",
+        "heat-input"
+      );
+
+      formData.set(
+        "voltage",
+        voltage
+      );
+
+      formData.set(
+        "amperage",
+        amperage
+      );
+
+      formData.set(
+        "travelSpeed",
+        speed
+      );
+
+      formData.set(
+        "process",
+        processName
+      );
+
+      formData.set(
+        "useFactor",
+        String(useFactor)
+      );
+
+      if (details.projectName) {
+        formData.set(
+          "projectName",
+          details.projectName
+        );
+      }
+
+      if (details.projectNumber) {
+        formData.set(
+          "projectNumber",
+          details.projectNumber
+        );
+      }
+
+      if (details.reportDate) {
+        formData.set(
+          "reportDate",
+          details.reportDate
+        );
+      }
+
+      if (details.standard) {
+        formData.set(
+          "standard",
+          details.standard
+        );
+      }
+
+      formData.set(
+        "reportTheme",
+        details.reportTheme
+      );
+
+      if (details.preparedBy) {
+        formData.set(
+          "preparedBy",
+          details.preparedBy
+        );
+      }
+
+      if (
+        details.preparedByRole
+      ) {
+        formData.set(
+          "preparedByRole",
+          details.preparedByRole
+        );
+      }
+
+      if (details.logo) {
+        formData.set(
+          "logo",
+          details.logo
+        );
+      }
+
+      const response =
+        await fetch(
+          "/api/reports/generate",
+          {
+            method: "POST",
+
+            headers: {
+              Authorization:
+                `Bearer ${idToken}`,
+            },
+
+            body: formData,
+          }
+        );
+
+      if (!response.ok) {
+        let message =
+          "The PDF report could not be generated.";
+
+        try {
+          const errorData =
+            (await response.json()) as {
+              error?: string;
+              code?: string;
+            };
+
+          if (errorData.error) {
+            message =
+              errorData.error;
+          }
+
+          if (
+            errorData.code ===
+            "PDF_EXPORT_REQUIRED"
+          ) {
+            message =
+              "A PDF export credit or DOST Premium subscription is required.";
+          }
+
+          if (
+            errorData.code ===
+            "PDF_CREDIT_UNAVAILABLE"
+          ) {
+            message =
+              "The PDF export credit is no longer available. Please try again.";
+          }
+        } catch {
+          // Keep the default message.
+        }
+
+        setReportError(message);
+        return;
+      }
+
+      const pdfBlob =
+        await response.blob();
+
+      const contentDisposition =
+        response.headers.get(
+          "content-disposition"
+        );
+
+      const fileNameMatch =
+        contentDisposition?.match(
+          /filename="([^"]+)"/i
+        );
+
+      const reportId =
+        response.headers.get(
+          "x-dost-report-id"
+        );
+
+      const fileName =
+        fileNameMatch?.[1] ??
+        (reportId
+          ? `DOST-${reportId}.pdf`
+          : "DOST-PDF-Report.pdf");
+
+      const objectUrl =
+        URL.createObjectURL(
+          pdfBlob
+        );
+
+      const downloadLink =
+        document.createElement(
+          "a"
+        );
+
+      downloadLink.href =
+        objectUrl;
+
+      downloadLink.download =
+        fileName;
+
+      document.body.appendChild(
+        downloadLink
+      );
+
+      downloadLink.click();
+
+      downloadLink.remove();
+
+      window.setTimeout(
+        () => {
+          URL.revokeObjectURL(
+            objectUrl
+          );
+        },
+        1000
+      );
+
+      setReportBuilderOpen(false);
+    } catch (error) {
+      console.error(
+        "Failed to generate PDF report:",
+        error
+      );
+
+      setReportError(
+        "The PDF report could not be generated."
+      );
+    } finally {
+      setGeneratingReport(false);
+    }
+  }
 
   async function handleSaveCalculation() {
     setSaveMessage("");
@@ -496,6 +814,42 @@ export default function Home() {
               <div className="mt-4">
                 <button
                   type="button"
+                  onClick={
+                    handleOpenReportBuilder
+                  }
+                  disabled={
+                    result === null
+                  }
+                  className="group relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl border border-cyan-300/50 bg-cyan-400/[0.08] px-5 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200 shadow-[0_0_25px_rgba(0,255,255,0.06)] transition-all duration-300 hover:border-cyan-200/80 hover:bg-cyan-400/[0.15] hover:shadow-[0_0_35px_rgba(0,255,255,0.12)] disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm"
+                >
+                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(0,255,255,0.05),transparent)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+
+                  <FileDown
+                    size={18}
+                    className="relative"
+                  />
+
+                  <span className="relative">
+                    {!user
+                      ? "Sign in to export PDF"
+                      : "Export PDF"}
+                  </span>
+                </button>
+
+                <p className="mt-2 text-center text-[0.7rem] uppercase tracking-[0.12em] text-zinc-600">
+                  Calculation report
+                </p>
+
+                {reportError && (
+                  <p className="mt-2 text-center text-xs text-red-400">
+                    {reportError}
+                  </p>
+                )}
+              </div>
+
+              <div className="mt-4">
+                <button
+                  type="button"
                   onClick={() =>
                     void handleSaveCalculation()
                   }
@@ -552,6 +906,29 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <ReportBuilderDialog
+        open={reportBuilderOpen}
+        reportTitle="PDF Report"
+        reportSubtitle="Heat Input Calculation"
+        calculationData={
+          reportCalculationData
+        }
+        formula={
+          useFactor
+            ? "HI = (V × A × 60 × k) / (1000 × S)"
+            : "HI = (V × A × 60) / (1000 × S)"
+        }
+        generating={
+          generatingReport
+        }
+        onClose={() =>
+          setReportBuilderOpen(false)
+        }
+        onGenerate={
+          handleGenerateReport
+        }
+      />
     </main>
   );
 }

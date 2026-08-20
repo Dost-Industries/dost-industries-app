@@ -1,6 +1,14 @@
 import { randomUUID } from "node:crypto";
 
 import {
+  Timestamp,
+} from "firebase-admin/firestore";
+
+import {
+  getAdminFirestore,
+} from "../firebase-admin";
+
+import {
   getPaymentProduct,
 } from "./catalog";
 
@@ -15,15 +23,6 @@ import {
 import {
   createPurchaseRecord,
 } from "./records";
-
-import {
-  findProcessedPurchaseByProviderId,
-} from "./serverValidation";
-
-import {
-  savePdfExportCreditServer,
-  savePurchaseRecordServer,
-} from "./serverStorage";
 
 import type {
   PaymentMethod,
@@ -64,23 +63,6 @@ export type ProcessValidatedPurchaseResult =
 export async function processValidatedPurchase(
   params: ProcessValidatedPurchaseParams
 ): Promise<ProcessValidatedPurchaseResult> {
-  const existingPurchase =
-    await findProcessedPurchaseByProviderId(
-      params.userId,
-      params.provider,
-      params.providerPurchaseId,
-      params.product
-    );
-
-  if (existingPurchase.exists) {
-    return {
-      processed: false,
-      reason: "already-processed",
-      purchaseId:
-        existingPurchase.purchaseId,
-    };
-  }
-
   const product =
     getPaymentProduct(
       params.product
@@ -98,7 +80,8 @@ export async function processValidatedPurchase(
     createPurchaseRecord({
       id: purchaseId,
 
-      userId: params.userId,
+      userId:
+        params.userId,
 
       provider:
         params.provider,
@@ -125,37 +108,154 @@ export async function processValidatedPurchase(
         product.currency,
     });
 
-  await savePurchaseRecordServer(
-    purchase
-  );
+  const credits =
+    Array.from(
+      {
+        length:
+          grant.pdfExportCredits,
+      },
+      () =>
+        createPdfExportCredit(
+          randomUUID(),
+          params.userId,
+          purchaseId
+        )
+    );
 
-  for (
-    let index = 0;
-    index <
-    grant.pdfExportCredits;
-    index += 1
-  ) {
-    const credit =
-      createPdfExportCredit(
-        randomUUID(),
-        params.userId,
-        purchaseId
+  const firestore =
+    getAdminFirestore();
+
+  const userReference =
+    firestore
+      .collection("users")
+      .doc(params.userId);
+
+  const purchasesCollection =
+    userReference.collection(
+      "purchases"
+    );
+
+  const creditsCollection =
+    userReference.collection(
+      "pdf_export_credits"
+    );
+
+  const existingPurchaseQuery =
+    purchasesCollection
+      .where(
+        "provider",
+        "==",
+        params.provider
+      )
+      .where(
+        "providerPurchaseId",
+        "==",
+        params.providerPurchaseId
+      )
+      .where(
+        "product",
+        "==",
+        params.product
+      )
+      .limit(1);
+
+  return firestore.runTransaction<
+    ProcessValidatedPurchaseResult
+  >(
+    async (transaction) => {
+      /*
+       * IMPORTANT:
+       *
+       * All reads happen before any writes.
+       *
+       * This lookup is part of the same
+       * transaction as the purchase and
+       * credit creation so that a retry
+       * cannot leave a completed purchase
+       * without its granted PDF credit.
+       */
+      const existingPurchaseSnapshot =
+        await transaction.get(
+          existingPurchaseQuery
+        );
+
+      if (
+        !existingPurchaseSnapshot.empty
+      ) {
+        return {
+          processed: false,
+
+          reason:
+            "already-processed",
+
+          purchaseId:
+            existingPurchaseSnapshot
+              .docs[0].id,
+        };
+      }
+
+      const purchaseReference =
+        purchasesCollection.doc(
+          purchase.id
+        );
+
+      transaction.set(
+        purchaseReference,
+        {
+          ...purchase,
+
+          createdAt:
+            Timestamp.fromDate(
+              purchase.createdAt
+            ),
+
+          updatedAt:
+            Timestamp.fromDate(
+              purchase.updatedAt
+            ),
+        }
       );
 
-    await savePdfExportCreditServer(
-      credit
-    );
-  }
+      for (
+        const credit of credits
+      ) {
+        const creditReference =
+          creditsCollection.doc(
+            credit.id
+          );
 
-  return {
-    processed: true,
+        transaction.set(
+          creditReference,
+          {
+            ...credit,
 
-    purchaseId,
+            consumedAt:
+              credit.consumedAt
+                ? Timestamp.fromDate(
+                    credit.consumedAt
+                  )
+                : null,
 
-    pdfExportCreditsGranted:
-      grant.pdfExportCredits,
+            createdAt:
+              Timestamp.fromDate(
+                credit.createdAt
+              ),
+          }
+        );
+      }
 
-    premiumAccessGranted:
-      grant.entitlements.length > 0,
-  };
+      return {
+        processed: true,
+
+        purchaseId,
+
+        pdfExportCreditsGranted:
+          credits.length,
+
+        premiumAccessGranted:
+          grant.entitlements.length >
+          0,
+      };
+    }
+  );
 }
