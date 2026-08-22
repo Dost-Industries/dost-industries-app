@@ -109,7 +109,7 @@ export default function RestorePurchases() {
   }
 
   return (
-    <div className="mt-6 rounded-2xl border border-cyan-400/25 bg-black/45 p-5 sm:p-6">
+    <div className="mt-6 rounded-2xl border border-cyan-400/25 bg-[var(--dost-surface-40)] p-5 sm:p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-cyan-400">
@@ -120,7 +120,7 @@ export default function RestorePurchases() {
             Restore purchases
           </h3>
 
-          <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+          <p className="mt-2 text-sm leading-relaxed text-[var(--dost-muted)]">
             Restore a previous DOST Premium
             purchase linked to your account.
           </p>

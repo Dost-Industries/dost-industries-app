@@ -106,25 +106,30 @@ type ReportTheme = {
 };
 
 const DIGITAL_THEME: ReportTheme = {
+  /*
+   * Mirrors the current DOST app:
+   * deep navy page, near-black technical
+   * panels and a bright cyan HUD accent.
+   */
   page: rgb(
-    0.008,
-    0.024,
-    0.036
+    0,
+    0,
+    0
   ),
   panel: rgb(
-    0.012,
-    0.044,
-    0.06
+    0.004,
+    0.022,
+    0.032
   ),
   panelAlt: rgb(
-    0.016,
-    0.058,
-    0.076
+    0.008,
+    0.035,
+    0.045
   ),
   panelSoft: rgb(
-    0.02,
-    0.072,
-    0.09
+    0.012,
+    0.052,
+    0.064
   ),
   accent: rgb(
     0,
@@ -132,47 +137,52 @@ const DIGITAL_THEME: ReportTheme = {
     0.92
   ),
   accentSoft: rgb(
-    0.25,
-    0.88,
-    0.95
+    0.32,
+    0.92,
+    0.97
   ),
   text: rgb(
-    0.94,
     0.97,
-    0.98
+    0.985,
+    0.995
   ),
   muted: rgb(
+    0.48,
     0.57,
-    0.64,
-    0.68
+    0.63
   ),
   faint: rgb(
-    0.27,
-    0.36,
-    0.4
+    0.12,
+    0.30,
+    0.34
   ),
   border: rgb(
     0,
-    0.38,
-    0.46
+    0.48,
+    0.56
   ),
   divider: rgb(
-    0.11,
-    0.24,
-    0.29
+    0.07,
+    0.22,
+    0.26
   ),
   signatureLine: rgb(
-    0.38,
-    0.46,
-    0.5
+    0.34,
+    0.43,
+    0.47
   ),
 };
 
 const PRINT_THEME: ReportTheme = {
+  /*
+   * Light/print follows the new Light UI:
+   * white/off-white surfaces, dark navy
+   * typography and the same cyan identity.
+   */
   page: rgb(
-    1,
-    1,
-    1
+    0.968,
+    0.985,
+    0.994
   ),
   panel: rgb(
     1,
@@ -180,54 +190,54 @@ const PRINT_THEME: ReportTheme = {
     1
   ),
   panelAlt: rgb(
-    0.975,
+    0.982,
+    0.993,
+    0.997
+  ),
+  panelSoft: rgb(
+    0.95,
     0.985,
     0.992
   ),
-  panelSoft: rgb(
-    0.955,
-    0.975,
-    0.988
-  ),
   accent: rgb(
-    0.015,
-    0.42,
-    0.78
+    0,
+    0.72,
+    0.82
   ),
   accentSoft: rgb(
-    0.03,
-    0.5,
-    0.86
+    0.16,
+    0.82,
+    0.9
   ),
   text: rgb(
     0.045,
-    0.055,
-    0.07
+    0.075,
+    0.13
   ),
   muted: rgb(
-    0.31,
     0.34,
-    0.38
+    0.42,
+    0.5
   ),
   faint: rgb(
-    0.68,
     0.72,
-    0.75
+    0.87,
+    0.9
   ),
   border: rgb(
-    0.68,
-    0.75,
-    0.8
-  ),
-  divider: rgb(
+    0.42,
     0.82,
-    0.85,
     0.87
   ),
+  divider: rgb(
+    0.78,
+    0.91,
+    0.93
+  ),
   signatureLine: rgb(
-    0.32,
-    0.34,
-    0.36
+    0.28,
+    0.36,
+    0.42
   ),
 };
 
@@ -424,169 +434,315 @@ function drawPageBackground(
     color: theme.page,
   });
 
-  drawHexagonCluster(
-    page,
-    theme,
-    PAGE_WIDTH - 118,
-    PAGE_HEIGHT - 84,
-    4,
-    3,
-    13
-  );
+  /*
+   * Subtle technical grid copied from the
+   * visual language of the calculator UI.
+   * It remains deliberately faint so the
+   * report still prints cleanly.
+   */
+  const gridStep = 28;
 
-  drawHexagonCluster(
-    page,
-    theme,
-    PAGE_WIDTH - 96,
-    112,
-    3,
-    2,
-    11
-  );
+  for (
+    let gridX = 18;
+    gridX < PAGE_WIDTH;
+    gridX += gridStep
+  ) {
+    page.drawLine({
+      start: {
+        x: gridX,
+        y: 18,
+      },
+      end: {
+        x: gridX,
+        y: PAGE_HEIGHT - 18,
+      },
+      thickness: 0.25,
+      color: theme.faint,
+      opacity: 0.12,
+    });
+  }
+
+  for (
+    let gridY = 18;
+    gridY < PAGE_HEIGHT;
+    gridY += gridStep
+  ) {
+    page.drawLine({
+      start: {
+        x: 18,
+        y: gridY,
+      },
+      end: {
+        x: PAGE_WIDTH - 18,
+        y: gridY,
+      },
+      thickness: 0.25,
+      color: theme.faint,
+      opacity: 0.12,
+    });
+  }
+
 }
 
-function getHexagonPoints(
-  centerX: number,
-  centerY: number,
-  radius: number
-) {
-  return Array.from(
-    {
-      length: 6,
-    },
-    (_, index) => {
-      const angle =
-        Math.PI / 6 +
-        (Math.PI / 3) * index;
-
-      return {
-        x:
-          centerX +
-          Math.cos(angle) *
-            radius,
-        y:
-          centerY +
-          Math.sin(angle) *
-            radius,
-      };
-    }
-  );
-}
-
-function drawHexagonOutline(
+function drawArc(
   page: PDFPage,
   color: PdfColor,
   centerX: number,
   centerY: number,
   radius: number,
-  thickness = 0.7
+  startAngle: number,
+  endAngle: number,
+  thickness: number
 ) {
-  const points =
-    getHexagonPoints(
-      centerX,
-      centerY,
-      radius
-    );
+  const segments = 8;
 
-  points.forEach(
-    (point, index) => {
-      const nextPoint =
-        points[
-          (index + 1) %
-            points.length
-        ];
+  let previous = {
+    x:
+      centerX +
+      Math.cos(startAngle) *
+        radius,
+    y:
+      centerY +
+      Math.sin(startAngle) *
+        radius,
+  };
 
-      page.drawLine({
-        start: point,
-        end: nextPoint,
-        thickness,
-        color,
-      });
-    }
-  );
+  for (
+    let index = 1;
+    index <= segments;
+    index += 1
+  ) {
+    const progress =
+      index / segments;
+
+    const angle =
+      startAngle +
+      (
+        endAngle -
+        startAngle
+      ) *
+        progress;
+
+    const next = {
+      x:
+        centerX +
+        Math.cos(angle) *
+          radius,
+      y:
+        centerY +
+        Math.sin(angle) *
+          radius,
+    };
+
+    page.drawLine({
+      start: previous,
+      end: next,
+      thickness,
+      color,
+    });
+
+    previous = next;
+  }
 }
 
-function drawHexagonBadge(
+function drawRoundedRectangle(
   page: PDFPage,
-  theme: ReportTheme,
-  centerX: number,
-  centerY: number,
-  radius = 8
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+  fillColor: PdfColor,
+  borderColor: PdfColor,
+  borderWidth = 0.7
 ) {
-  drawHexagonOutline(
-    page,
-    theme.accent,
-    centerX,
-    centerY,
-    radius,
-    0.8
+  const safeRadius =
+    Math.max(
+      0,
+      Math.min(
+        radius,
+        width / 2,
+        height / 2
+      )
+    );
+
+  page.drawRectangle({
+    x: x + safeRadius,
+    y,
+    width:
+      width -
+      safeRadius * 2,
+    height,
+    color: fillColor,
+  });
+
+  page.drawRectangle({
+    x,
+    y: y + safeRadius,
+    width,
+    height:
+      height -
+      safeRadius * 2,
+    color: fillColor,
+  });
+
+  const corners = [
+    {
+      x: x + safeRadius,
+      y: y + safeRadius,
+    },
+    {
+      x:
+        x +
+        width -
+        safeRadius,
+      y: y + safeRadius,
+    },
+    {
+      x:
+        x +
+        width -
+        safeRadius,
+      y:
+        y +
+        height -
+        safeRadius,
+    },
+    {
+      x: x + safeRadius,
+      y:
+        y +
+        height -
+        safeRadius,
+    },
+  ] as const;
+
+  corners.forEach(
+    (corner) => {
+      page.drawCircle({
+        x: corner.x,
+        y: corner.y,
+        size: safeRadius,
+        color: fillColor,
+      });
+    }
   );
 
   page.drawLine({
     start: {
-      x:
-        centerX -
-        radius * 0.35,
-      y: centerY,
+      x: x + safeRadius,
+      y,
     },
     end: {
       x:
-        centerX +
-        radius * 0.35,
-      y: centerY,
+        x +
+        width -
+        safeRadius,
+      y,
     },
-    thickness: 0.7,
-    color: theme.accent,
+    thickness: borderWidth,
+    color: borderColor,
   });
-}
 
-function drawHexagonCluster(
-  page: PDFPage,
-  theme: ReportTheme,
-  startX: number,
-  startY: number,
-  columns: number,
-  rows: number,
-  radius: number
-) {
-  const horizontalStep =
-    Math.sqrt(3) * radius;
+  page.drawLine({
+    start: {
+      x: x + safeRadius,
+      y: y + height,
+    },
+    end: {
+      x:
+        x +
+        width -
+        safeRadius,
+      y: y + height,
+    },
+    thickness: borderWidth,
+    color: borderColor,
+  });
 
-  const verticalStep =
-    radius * 1.5;
+  page.drawLine({
+    start: {
+      x,
+      y: y + safeRadius,
+    },
+    end: {
+      x,
+      y:
+        y +
+        height -
+        safeRadius,
+    },
+    thickness: borderWidth,
+    color: borderColor,
+  });
 
-  for (
-    let row = 0;
-    row < rows;
-    row += 1
-  ) {
-    for (
-      let column = 0;
-      column < columns;
-      column += 1
-    ) {
-      const centerX =
-        startX +
-        column *
-          horizontalStep +
-        (row % 2 === 1
-          ? horizontalStep / 2
-          : 0);
+  page.drawLine({
+    start: {
+      x: x + width,
+      y: y + safeRadius,
+    },
+    end: {
+      x: x + width,
+      y:
+        y +
+        height -
+        safeRadius,
+    },
+    thickness: borderWidth,
+    color: borderColor,
+  });
 
-      const centerY =
-        startY -
-        row * verticalStep;
+  drawArc(
+    page,
+    borderColor,
+    x + safeRadius,
+    y + safeRadius,
+    safeRadius,
+    Math.PI,
+    Math.PI * 1.5,
+    borderWidth
+  );
 
-      drawHexagonOutline(
-        page,
-        theme.faint,
-        centerX,
-        centerY,
-        radius,
-        0.55
-      );
-    }
-  }
+  drawArc(
+    page,
+    borderColor,
+    x +
+      width -
+      safeRadius,
+    y + safeRadius,
+    safeRadius,
+    Math.PI * 1.5,
+    Math.PI * 2,
+    borderWidth
+  );
+
+  drawArc(
+    page,
+    borderColor,
+    x +
+      width -
+      safeRadius,
+    y +
+      height -
+      safeRadius,
+    safeRadius,
+    0,
+    Math.PI / 2,
+    borderWidth
+  );
+
+  drawArc(
+    page,
+    borderColor,
+    x + safeRadius,
+    y +
+      height -
+      safeRadius,
+    safeRadius,
+    Math.PI / 2,
+    Math.PI,
+    borderWidth
+  );
 }
 
 type ReportIconKind =
@@ -967,14 +1123,14 @@ function drawReportIcon(
     return;
   }
 
-  drawHexagonOutline(
-    page,
-    theme.accent,
-    centerX,
-    centerY,
-    half - 1,
-    0.9
-  );
+  page.drawCircle({
+    x: centerX,
+    y: centerY,
+    size: half - 1,
+    borderColor:
+      theme.accent,
+    borderWidth: 0.9,
+  });
 
   page.drawCircle({
     x: centerX,
@@ -1129,147 +1285,43 @@ function drawPanel(
         ? theme.panelSoft
         : theme.panel;
 
-  page.drawRectangle({
+  drawRoundedRectangle(
+    page,
     x,
     y,
     width,
     height,
+    11,
     color,
-  });
-
-  const cut = 9;
-  const borderThickness = 0.7;
-
-  page.drawLine({
-    start: {
-      x: x + cut,
-      y: y + height,
-    },
-    end: {
-      x: x + width - cut,
-      y: y + height,
-    },
-    thickness: borderThickness,
-    color: theme.border,
-  });
+    theme.border,
+    0.75
+  );
 
   page.drawLine({
     start: {
-      x: x + width - cut,
-      y: y + height,
-    },
-    end: {
-      x: x + width,
-      y: y + height - cut,
-    },
-    thickness: borderThickness,
-    color: theme.border,
-  });
-
-  page.drawLine({
-    start: {
-      x: x + width,
-      y: y + height - cut,
-    },
-    end: {
-      x: x + width,
-      y: y + cut,
-    },
-    thickness: borderThickness,
-    color: theme.border,
-  });
-
-  page.drawLine({
-    start: {
-      x: x + width,
-      y: y + cut,
-    },
-    end: {
-      x: x + width - cut,
-      y,
-    },
-    thickness: borderThickness,
-    color: theme.border,
-  });
-
-  page.drawLine({
-    start: {
-      x: x + width - cut,
-      y,
-    },
-    end: {
-      x: x + cut,
-      y,
-    },
-    thickness: borderThickness,
-    color: theme.border,
-  });
-
-  page.drawLine({
-    start: {
-      x: x + cut,
-      y,
-    },
-    end: {
-      x,
-      y: y + cut,
-    },
-    thickness: borderThickness,
-    color: theme.border,
-  });
-
-  page.drawLine({
-    start: {
-      x,
-      y: y + cut,
-    },
-    end: {
-      x,
-      y: y + height - cut,
-    },
-    thickness: borderThickness,
-    color: theme.border,
-  });
-
-  page.drawLine({
-    start: {
-      x,
-      y: y + height - cut,
-    },
-    end: {
-      x: x + cut,
-      y: y + height,
-    },
-    thickness: borderThickness,
-    color: theme.border,
-  });
-
-  page.drawLine({
-    start: {
-      x: x + 14,
+      x: x + 20,
       y: y + height - 2.5,
     },
     end: {
-      x: x + 46,
+      x: x + 54,
       y: y + height - 2.5,
     },
-    thickness: 0.55,
+    thickness: 0.45,
     color: theme.faint,
   });
 
   page.drawLine({
     start: {
-      x: x + width - 46,
+      x: x + width - 54,
       y: y + 2.5,
     },
     end: {
-      x: x + width - 14,
+      x: x + width - 20,
       y: y + 2.5,
     },
-    thickness: 0.55,
+    thickness: 0.45,
     color: theme.faint,
   });
-
 }
 
 function drawLabel(
@@ -1617,10 +1669,10 @@ function drawTopInformation(
   logo: PDFImage | null
 ) {
   const x = MARGIN;
-  const y = 682;
+  const y = 692;
   const width =
     CONTENT_WIDTH;
-  const height = 132;
+  const height = 122;
 
   drawPanel(
     page,
@@ -1697,34 +1749,6 @@ function drawTopInformation(
         theme.divider,
     });
   }
-
-  drawHexagonOutline(
-    page,
-    theme.border,
-    x + logoWidth / 2,
-    y + height / 2 + 4,
-    36,
-    0.8
-  );
-
-  drawHexagonOutline(
-    page,
-    theme.faint,
-    x + logoWidth / 2,
-    y + height / 2 + 4,
-    48,
-    0.55
-  );
-
-  drawHexagonCluster(
-    page,
-    theme,
-    x + 38,
-    y + height - 26,
-    2,
-    2,
-    8
-  );
 
   drawLogoArea(
     page,
@@ -1946,52 +1970,7 @@ function drawTitleArea(
     buildReportHeading(input);
 
   const titleX = 30;
-  const titleY = 636;
-
-  page.drawText(
-    heading,
-    {
-      x: titleX,
-      y: titleY,
-      size: 20,
-      font: fonts.bold,
-      color:
-        theme.text,
-    }
-  );
-
-  drawHexagonBadge(
-    page,
-    theme,
-    titleX + 8,
-    titleY - 18,
-    7
-  );
-
-  page.drawText(
-    "CALCULATION SUMMARY",
-    {
-      x: titleX + 18,
-      y: titleY - 23,
-      size: 8.2,
-      font: fonts.bold,
-      color:
-        theme.accent,
-    }
-  );
-
-  page.drawLine({
-    start: {
-      x: titleX + 18,
-      y: titleY - 32,
-    },
-    end: {
-      x: titleX + 92,
-      y: titleY - 32,
-    },
-    thickness: 1.2,
-    color: theme.accent,
-  });
+  const titleY = 642;
 
   const idWidth = 184;
   const idHeight = 58;
@@ -1999,7 +1978,182 @@ function drawTitleArea(
     PAGE_WIDTH -
     MARGIN -
     idWidth;
-  const idY = 593;
+  const idY = 603;
+
+  const titleRegionWidth =
+    idX -
+    titleX -
+    18;
+
+  const reportSuffix =
+    " REPORT";
+
+  const reportSuffixText =
+    "REPORT";
+
+  const reportSuffixGap = 12;
+
+  const hasReportSuffix =
+    heading.endsWith(
+      reportSuffix
+    );
+
+  const subject =
+    hasReportSuffix
+      ? heading.slice(
+          0,
+          -reportSuffix.length
+        )
+      : heading;
+
+  const suffix =
+    hasReportSuffix
+      ? reportSuffixText
+      : "";
+
+  const titleSize =
+    heading.length > 24
+      ? 13.5
+      : 16.5;
+
+  const subjectWidth =
+    fonts.bold.widthOfTextAtSize(
+      subject,
+      titleSize
+    );
+
+  const suffixWidth =
+    suffix
+      ? fonts.bold.widthOfTextAtSize(
+          suffix,
+          titleSize
+        )
+      : 0;
+
+  const headingWidth =
+    subjectWidth +
+    (suffix
+      ? reportSuffixGap
+      : 0) +
+    suffixWidth;
+
+  const headingX =
+    titleX +
+    (
+      titleRegionWidth -
+      headingWidth
+    ) /
+      2;
+
+  const titleCenterY =
+    titleY + 5;
+
+  const lineGap = 10;
+  const leftLineEnd =
+    headingX -
+    lineGap;
+
+  const rightLineStart =
+    headingX +
+    headingWidth +
+    lineGap;
+
+  if (
+    leftLineEnd >
+    titleX + 8
+  ) {
+    page.drawLine({
+      start: {
+        x: titleX,
+        y: titleCenterY,
+      },
+      end: {
+        x: leftLineEnd,
+        y: titleCenterY,
+      },
+      thickness: 0.75,
+      color: theme.accent,
+      opacity: 0.7,
+    });
+  }
+
+  if (
+    rightLineStart <
+    titleX +
+      titleRegionWidth -
+      8
+  ) {
+    page.drawLine({
+      start: {
+        x: rightLineStart,
+        y: titleCenterY,
+      },
+      end: {
+        x:
+          titleX +
+          titleRegionWidth,
+        y: titleCenterY,
+      },
+      thickness: 0.75,
+      color: theme.accent,
+      opacity: 0.7,
+    });
+  }
+
+  page.drawText(
+    subject,
+    {
+      x: headingX,
+      y: titleY - 1,
+      size: titleSize,
+      font: fonts.bold,
+      color: theme.text,
+    }
+  );
+
+  if (suffix) {
+    page.drawText(
+      suffix,
+      {
+        x:
+          headingX +
+          subjectWidth +
+          reportSuffixGap,
+        y: titleY - 1,
+        size: titleSize,
+        font: fonts.bold,
+        color: theme.accent,
+      }
+    );
+  }
+
+  const summary =
+    "CALCULATION SUMMARY";
+
+  const summarySize = 6.8;
+
+  const summaryWidth =
+    fonts.bold.widthOfTextAtSize(
+      summary,
+      summarySize
+    );
+
+  page.drawText(
+    summary,
+    {
+      x:
+        titleX +
+        (
+          titleRegionWidth -
+          summaryWidth
+        ) /
+          2,
+      y: titleY - 19,
+      size: summarySize,
+      font: fonts.bold,
+      color: theme.muted,
+    }
+  );
 
   drawPanel(
     page,
@@ -2011,12 +2165,13 @@ function drawTitleArea(
     "alternate"
   );
 
-  drawHexagonBadge(
+  drawReportIcon(
     page,
     theme,
+    "result",
     idX + 18,
     idY + 42,
-    6
+    12
   );
 
   drawLabel(
@@ -2052,15 +2207,15 @@ function drawTitleArea(
     {
       x:
         idX +
-        (idWidth -
-          reportIdWidth) /
+        (
+          idWidth -
+          reportIdWidth
+        ) /
           2,
       y: idY + 13,
-      size:
-        reportIdSize,
+      size: reportIdSize,
       font: fonts.bold,
-      color:
-        theme.text,
+      color: theme.text,
     }
   );
 }
@@ -2119,12 +2274,13 @@ function drawInputTable(
 
   const headerHeight = 34;
 
-  drawHexagonBadge(
+  drawReportIcon(
     page,
     theme,
+    "sliders",
     x + 17,
     y + height - 17,
-    6
+    12
   );
 
   drawLabel(
@@ -2151,7 +2307,7 @@ function drawInputTable(
   });
 
   const visibleItems =
-    items.slice(0, 6);
+    items.slice(0, 7);
 
   const rowHeight =
     (height - headerHeight) /
@@ -2329,28 +2485,87 @@ function drawResultPanel(
     "alternate"
   );
 
-  drawReportIcon(
-    page,
-    theme,
-    "result",
-    x + 18,
-    y + height - 18,
-    12
-  );
-
-  drawLabel(
-    page,
-    fonts,
-    theme,
+  const resultHeading =
     buildResultHeading(
       item
-    ),
-    x + 31,
-    y +
-      height -
-      22,
-    7.4
+    );
+
+  const resultHeadingSize =
+    6.8;
+
+  const resultHeadingWidth =
+    fonts.bold.widthOfTextAtSize(
+      resultHeading,
+      resultHeadingSize
+    );
+
+  const resultHeadingX =
+    x +
+    (
+      width -
+      resultHeadingWidth
+    ) /
+      2;
+
+  const resultHeadingY =
+    y + height - 23;
+
+  const resultLineY =
+    resultHeadingY + 4;
+
+  page.drawLine({
+    start: {
+      x: x + 18,
+      y: resultLineY,
+    },
+    end: {
+      x:
+        Math.max(
+          x + 18,
+          resultHeadingX - 10
+        ),
+      y: resultLineY,
+    },
+    thickness: 0.6,
+    color: theme.accent,
+    opacity: 0.7,
+  });
+
+  page.drawText(
+    resultHeading,
+    {
+      x: resultHeadingX,
+      y: resultHeadingY,
+      size: resultHeadingSize,
+      font: fonts.bold,
+      color: theme.accent,
+    }
   );
+
+  page.drawLine({
+    start: {
+      x:
+        Math.min(
+          x +
+            width -
+            18,
+          resultHeadingX +
+            resultHeadingWidth +
+            10
+        ),
+      y: resultLineY,
+    },
+    end: {
+      x:
+        x +
+        width -
+        18,
+      y: resultLineY,
+    },
+    thickness: 0.6,
+    color: theme.accent,
+    opacity: 0.7,
+  });
 
   const resultCenterY =
     y +
@@ -2358,28 +2573,31 @@ function drawResultPanel(
       2 +
     20;
 
-  drawHexagonOutline(
-    page,
-    theme.border,
-    x + width / 2,
-    resultCenterY,
+  const resultCardWidth =
     Math.min(
-      width,
-      height
-    ) * 0.27,
-    1
-  );
+      width - 64,
+      126
+    );
 
-  drawHexagonOutline(
+  const resultCardHeight =
+    92;
+
+  drawRoundedRectangle(
     page,
-    theme.faint,
-    x + width / 2,
-    resultCenterY,
-    Math.min(
-      width,
-      height
-    ) * 0.31,
-    0.55
+    x +
+      (
+        width -
+        resultCardWidth
+      ) /
+        2,
+    resultCenterY -
+      resultCardHeight / 2,
+    resultCardWidth,
+    resultCardHeight,
+    16,
+    theme.panel,
+    theme.border,
+    0.9
   );
 
   const result =
@@ -2454,6 +2672,54 @@ function drawResultPanel(
     );
   }
 
+  const resultMarkerY =
+    y + 61;
+
+  page.drawLine({
+    start: {
+      x:
+        x +
+        width / 2 -
+        40,
+      y: resultMarkerY,
+    },
+    end: {
+      x:
+        x +
+        width / 2 -
+        8,
+      y: resultMarkerY,
+    },
+    thickness: 0.45,
+    color: theme.faint,
+  });
+
+  page.drawCircle({
+    x: x + width / 2,
+    y: resultMarkerY,
+    size: 1.8,
+    color: theme.accent,
+  });
+
+  page.drawLine({
+    start: {
+      x:
+        x +
+        width / 2 +
+        8,
+      y: resultMarkerY,
+    },
+    end: {
+      x:
+        x +
+        width / 2 +
+        40,
+      y: resultMarkerY,
+    },
+    thickness: 0.45,
+    color: theme.faint,
+  });
+
   const formulaDividerY =
     y + 50;
 
@@ -2491,13 +2757,27 @@ function drawResultPanel(
     normalizedFormula ||
     "No formula supplied";
 
+  const formulaSize =
+    formulaText.startsWith(
+      "Tp = 697 x CET"
+    )
+      ? 6.6
+      : 7.2;
+
   const formulaLines =
-    wrapText(
-      formulaText,
-      fonts.regular,
-      7.2,
-      width - 32
-    ).slice(0, 2);
+    formulaText.startsWith(
+      "Tp = 697 x CET"
+    )
+      ? [
+          "Tp = 697 x CET + 160 x tanh(d / 35) + 62 x HD^0.35",
+          "+ (53 x CET - 32) x Q - 328",
+        ]
+      : wrapText(
+          formulaText,
+          fonts.regular,
+          formulaSize,
+          width - 32
+        ).slice(0, 2);
 
   formulaLines.forEach(
     (
@@ -2513,7 +2793,7 @@ function drawResultPanel(
             18 -
             index *
               9,
-          size: 7.2,
+          size: formulaSize,
           font:
             fonts.regular,
           color:
@@ -2564,16 +2844,6 @@ function drawPhotoPanel(
       height -
       22,
     7.5
-  );
-
-  drawHexagonCluster(
-    page,
-    theme,
-    x + width - 72,
-    y + height - 18,
-    2,
-    2,
-    7
   );
 
   const visiblePhotos =
@@ -2733,14 +3003,15 @@ function drawSignaturePanel(
     height
   );
 
-  drawHexagonBadge(
+  drawReportIcon(
     page,
     theme,
+    "result",
     x + width - 16,
     y +
       height -
       17,
-    5.5
+    11
   );
 
   drawLabel(
@@ -2951,7 +3222,7 @@ function drawFooter(
     {
       x: MARGIN + 1,
       y: footerY,
-      size: 8.7,
+      size: 8.2,
       font: fonts.bold,
       color:
         theme.text,
@@ -2972,7 +3243,7 @@ function drawFooter(
         1 +
         dostWidth,
       y: footerY,
-      size: 8.7,
+      size: 8.2,
       font: fonts.bold,
       color:
         theme.accent,
@@ -3052,14 +3323,6 @@ function drawFooter(
       color: theme.accent,
     });
 
-    drawHexagonOutline(
-      page,
-      theme.faint,
-      lineStart - 5,
-      footerY + 2,
-      5,
-      0.45
-    );
   }
 }
 
@@ -3132,16 +3395,6 @@ function drawContinuationHeader(
       color:
         theme.muted,
     }
-  );
-
-  drawHexagonCluster(
-    page,
-    theme,
-    PAGE_WIDTH - 74,
-    PAGE_HEIGHT - 30,
-    2,
-    2,
-    6
   );
 
   page.drawLine({
@@ -3387,8 +3640,8 @@ function drawMainReportPage(
       input.calculationData
     );
 
-  const mainY = 392;
-  const mainHeight = 188;
+  const mainY = 388;
+  const mainHeight = 202;
   const gap = 12;
 
   const inputWidth = 282;
@@ -3541,7 +3794,7 @@ export async function generatePdfReport(
     );
 
   let remaining =
-    inputItems.slice(6);
+    inputItems.slice(7);
 
   while (
     remaining.length > 0

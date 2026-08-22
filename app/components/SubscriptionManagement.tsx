@@ -365,7 +365,7 @@ export default function SubscriptionManagement() {
 
   return (
     <>
-      <div className="mt-6 rounded-2xl border border-cyan-400/25 bg-black/45 p-5 sm:p-6">
+      <div className="mt-6 rounded-2xl border border-cyan-400/25 bg-[var(--dost-surface-40)] p-5 sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-cyan-400">
@@ -384,7 +384,7 @@ export default function SubscriptionManagement() {
         </div>
 
         <div className="mt-5 rounded-xl border border-cyan-500/15 bg-cyan-400/5 p-4">
-          <p className="text-[0.65rem] uppercase tracking-[0.22em] text-zinc-500">
+          <p className="text-[0.65rem] uppercase tracking-[0.22em] text-[var(--dost-muted)]">
             Status
           </p>
 
@@ -392,7 +392,7 @@ export default function SubscriptionManagement() {
             className={`mt-2 text-lg font-semibold ${
               isActive
                 ? "text-emerald-400"
-                : "text-zinc-300"
+                : "text-[var(--dost-text)]"
             }`}
           >
             {status}
@@ -411,7 +411,7 @@ export default function SubscriptionManagement() {
                     Cancellation scheduled
                   </p>
 
-                  <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+                  <p className="mt-1 text-xs leading-relaxed text-[var(--dost-muted)]">
                     Premium remains active through {accessUntil}. It will not renew after that date.
                   </p>
                 </div>
@@ -420,12 +420,12 @@ export default function SubscriptionManagement() {
         </div>
 
         {subscription && (
-          <div className="mt-3 rounded-xl border border-cyan-500/15 bg-black/30 p-4">
-            <p className="text-[0.65rem] uppercase tracking-[0.22em] text-zinc-500">
+          <div className="mt-3 rounded-xl border border-cyan-500/15 bg-[var(--dost-surface-30)] p-4">
+            <p className="text-[0.65rem] uppercase tracking-[0.22em] text-[var(--dost-muted)]">
               Plan
             </p>
 
-            <p className="mt-2 text-sm text-white">
+            <p className="mt-2 text-sm text-[var(--dost-text)]">
               {subscription.id ===
               "dost-premium"
                 ? "DOST Premium"
@@ -435,7 +435,7 @@ export default function SubscriptionManagement() {
         )}
 
         {statusLoading && (
-          <div className="mt-4 flex items-center gap-2 text-sm text-zinc-500">
+          <div className="mt-4 flex items-center gap-2 text-sm text-[var(--dost-muted)]">
             <Loader2
               size={15}
               className="animate-spin"
@@ -463,7 +463,7 @@ export default function SubscriptionManagement() {
                 Cancel DOST Premium
               </button>
 
-              <p className="mt-3 text-xs leading-relaxed text-zinc-600">
+              <p className="mt-3 text-xs leading-relaxed text-[var(--dost-muted)]">
                 Canceling stops future renewals. Premium access remains available for the period already paid for.
               </p>
             </div>
@@ -476,13 +476,13 @@ export default function SubscriptionManagement() {
               className="mt-0.5 shrink-0 text-emerald-400"
             />
 
-            <p className="text-sm leading-relaxed text-zinc-400">
+            <p className="text-sm leading-relaxed text-[var(--dost-muted)]">
               Future renewal has been canceled. Your current Premium access remains available until the paid period ends.
             </p>
           </div>
         )}
 
-        <p className="mt-4 text-sm leading-relaxed text-zinc-500">
+        <p className="mt-4 text-sm leading-relaxed text-[var(--dost-muted)]">
           Subscription changes are verified server-side. Access cannot be changed from the browser.
         </p>
       </div>
@@ -494,7 +494,7 @@ export default function SubscriptionManagement() {
           aria-modal="true"
           aria-labelledby="cancel-premium-title"
         >
-          <div className="w-full max-w-md rounded-2xl border border-red-500/30 bg-zinc-950 p-5 shadow-2xl shadow-black/70 sm:p-6">
+          <div className="w-full max-w-md rounded-2xl border border-red-500/30 bg-[var(--dost-bg)] p-5 shadow-2xl shadow-black/30 sm:p-6">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-red-500/25 bg-red-500/10 text-red-300">
@@ -510,7 +510,7 @@ export default function SubscriptionManagement() {
 
                   <h4
                     id="cancel-premium-title"
-                    className="mt-2 text-lg font-semibold text-white"
+                    className="mt-2 text-lg font-semibold text-[var(--dost-text)]"
                   >
                     Cancel DOST Premium?
                   </h4>
@@ -522,14 +522,14 @@ export default function SubscriptionManagement() {
                 onClick={closeCancelDialog}
                 disabled={cancelling}
                 aria-label="Close cancellation dialog"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/10 text-zinc-400 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-cyan-500/15 text-[var(--dost-muted)] transition hover:border-cyan-400/30 hover:text-[var(--dost-text)] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <X size={17} />
               </button>
             </div>
 
-            <div className="mt-5 rounded-xl border border-white/10 bg-black/35 p-4">
-              <p className="text-sm leading-relaxed text-zinc-300">
+            <div className="mt-5 rounded-xl border border-cyan-500/15 bg-[var(--dost-surface-30)] p-4">
+              <p className="text-sm leading-relaxed text-[var(--dost-text)]">
                 Future monthly renewals will stop. You will keep DOST Premium for the remainder of the period you have already paid for.
               </p>
             </div>
@@ -545,7 +545,7 @@ export default function SubscriptionManagement() {
                 type="button"
                 onClick={closeCancelDialog}
                 disabled={cancelling}
-                className="rounded-xl border border-cyan-500/20 bg-cyan-400/5 px-4 py-3 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/10 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-xl border border-cyan-500/20 bg-cyan-400/5 px-4 py-3 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-400/10 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Keep Premium
               </button>

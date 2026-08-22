@@ -568,10 +568,10 @@ export default function ReportBuilderDialog({
   }
 
   const fieldClassName =
-    "w-full rounded-xl border border-cyan-500/20 bg-[#02090f]/90 px-4 py-3 text-sm text-white outline-none transition-all placeholder:text-zinc-600 hover:border-cyan-400/40 focus:border-cyan-300/70 focus:shadow-[0_0_18px_rgba(0,255,255,0.10)]";
+    "w-full rounded-xl border border-cyan-500/20 bg-[var(--dost-input-bg)] px-4 py-3 text-sm text-[var(--dost-text)] outline-none transition-all placeholder:text-[var(--dost-muted-strong)] hover:border-cyan-400/40 focus:border-cyan-300/70 focus:shadow-[0_0_18px_rgba(0,255,255,0.10)]";
 
   const labelClassName =
-    "mb-2 block text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-zinc-400";
+    "mb-2 block text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-[var(--dost-muted)]";
 
   const currentPdfAccess =
     user &&
@@ -605,13 +605,13 @@ export default function ReportBuilderDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 px-3 py-4 backdrop-blur-md sm:px-6 sm:py-6"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-[var(--dost-overlay)] px-3 py-4 backdrop-blur-md sm:px-6 sm:py-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="report-builder-title"
     >
-      <div className="relative flex max-h-[94vh] w-full max-w-4xl flex-col overflow-hidden rounded-[28px] border border-cyan-500/30 bg-[#02080d] shadow-[0_0_80px_rgba(0,255,255,0.15)]">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(0,255,255,0.08),transparent_45%)]" />
+      <div className="relative flex max-h-[94vh] w-full max-w-4xl flex-col overflow-hidden rounded-[28px] border border-cyan-500/30 bg-[var(--dost-surface-95)] shadow-[0_0_80px_rgba(0,255,255,0.15)]">
+        <div className="pointer-events-none absolute inset-0 dost-radial-bg" />
 
         <div className="pointer-events-none absolute left-0 top-0 z-20 h-16 w-16 rounded-tl-[28px] border-l border-t border-cyan-300/70" />
 
@@ -621,7 +621,7 @@ export default function ReportBuilderDialog({
 
         <div className="pointer-events-none absolute bottom-0 right-0 z-20 h-16 w-16 rounded-br-[28px] border-b border-r border-cyan-300/70" />
 
-        <header className="relative z-10 flex shrink-0 items-start justify-between border-b border-cyan-500/15 bg-[#02080d]/95 px-5 py-5 backdrop-blur-xl sm:px-8 sm:py-7">
+        <header className="relative z-10 flex shrink-0 items-start justify-between border-b border-cyan-500/15 bg-[var(--dost-surface-95)] px-5 py-5 backdrop-blur-xl sm:px-8 sm:py-7">
           <div className="flex items-start gap-4">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-cyan-400/30 bg-cyan-400/10">
               <FileText
@@ -637,13 +637,13 @@ export default function ReportBuilderDialog({
 
               <h2
                 id="report-builder-title"
-                className="mt-1 text-lg font-semibold uppercase tracking-[0.1em] text-white sm:text-2xl"
+                className="mt-1 text-lg font-semibold uppercase tracking-[0.1em] text-[var(--dost-text)] sm:text-2xl"
               >
                 {reportTitle}
               </h2>
 
               {reportSubtitle && (
-                <p className="mt-1 text-xs text-zinc-500 sm:text-sm">
+                <p className="mt-1 text-xs text-[var(--dost-muted)] sm:text-sm">
                   {reportSubtitle}
                 </p>
               )}
@@ -655,7 +655,7 @@ export default function ReportBuilderDialog({
             onClick={onClose}
             disabled={generating}
             aria-label="Close report builder"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-500/20 bg-black/30 text-zinc-400 transition-all hover:border-cyan-300/60 hover:text-cyan-300 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-500/20 bg-[var(--dost-surface-30)] text-[var(--dost-muted)] transition-all hover:border-cyan-300/60 hover:text-cyan-300 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <X size={18} />
           </button>
@@ -665,7 +665,7 @@ export default function ReportBuilderDialog({
           className="
             relative z-10 min-h-0 flex-1 overflow-y-auto
             [&::-webkit-scrollbar]:w-2
-            [&::-webkit-scrollbar-track]:bg-[#010609]
+            [&::-webkit-scrollbar-track]:bg-[var(--dost-surface-80)]
             [&::-webkit-scrollbar-thumb]:rounded-full
             [&::-webkit-scrollbar-thumb]:bg-cyan-500/30
             hover:[&::-webkit-scrollbar-thumb]:bg-cyan-400/50
@@ -674,13 +674,13 @@ export default function ReportBuilderDialog({
           "
         >
           <div className="space-y-5 p-5 sm:p-8">
-            <section className="rounded-2xl border border-cyan-500/20 bg-black/30 p-4 sm:p-5">
+            <section className="rounded-2xl border border-cyan-500/20 bg-[var(--dost-surface-40)] p-4 sm:p-5">
               <div className="mb-5">
                 <p className="text-[0.62rem] font-semibold uppercase tracking-[0.25em] text-cyan-400">
                   Report Style
                 </p>
 
-                <p className="mt-2 text-xs leading-relaxed text-zinc-500">
+                <p className="mt-2 text-xs leading-relaxed text-[var(--dost-muted)]">
                   Choose the PDF version that best fits how the report will be used.
                 </p>
               </div>
@@ -701,7 +701,7 @@ export default function ReportBuilderDialog({
                     reportTheme ===
                     "digital"
                       ? "border-cyan-300/70 bg-cyan-400/10 shadow-[0_0_24px_rgba(0,255,255,0.10)]"
-                      : "border-cyan-500/15 bg-[#02090f]/70 hover:border-cyan-400/35"
+                      : "border-cyan-500/15 bg-[var(--dost-surface-70)] hover:border-cyan-400/35"
                   }`}
                 >
                   <div className="flex items-start gap-3">
@@ -710,7 +710,7 @@ export default function ReportBuilderDialog({
                         reportTheme ===
                         "digital"
                           ? "border-cyan-300/50 bg-cyan-400/10 text-cyan-200"
-                          : "border-zinc-700 bg-black/30 text-zinc-500"
+                          : "border-cyan-500/15 bg-[var(--dost-surface-30)] text-[var(--dost-muted)]"
                       }`}
                     >
                       <Monitor
@@ -719,11 +719,11 @@ export default function ReportBuilderDialog({
                     </div>
 
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--dost-text)]">
                         Digital
                       </p>
 
-                      <p className="mt-1 text-xs text-zinc-500">
+                      <p className="mt-1 text-xs text-[var(--dost-muted)]">
                         Dark background · Optimized for screen use
                       </p>
                     </div>
@@ -745,7 +745,7 @@ export default function ReportBuilderDialog({
                     reportTheme ===
                     "print"
                       ? "border-cyan-300/70 bg-cyan-400/10 shadow-[0_0_24px_rgba(0,255,255,0.10)]"
-                      : "border-cyan-500/15 bg-[#02090f]/70 hover:border-cyan-400/35"
+                      : "border-cyan-500/15 bg-[var(--dost-surface-70)] hover:border-cyan-400/35"
                   }`}
                 >
                   <div className="flex items-start gap-3">
@@ -754,7 +754,7 @@ export default function ReportBuilderDialog({
                         reportTheme ===
                         "print"
                           ? "border-cyan-300/50 bg-cyan-400/10 text-cyan-200"
-                          : "border-zinc-700 bg-black/30 text-zinc-500"
+                          : "border-cyan-500/15 bg-[var(--dost-surface-30)] text-[var(--dost-muted)]"
                       }`}
                     >
                       <Printer
@@ -763,11 +763,11 @@ export default function ReportBuilderDialog({
                     </div>
 
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--dost-text)]">
                         Print
                       </p>
 
-                      <p className="mt-1 text-xs text-zinc-500">
+                      <p className="mt-1 text-xs text-[var(--dost-muted)]">
                         White background · Optimized for printing
                       </p>
                     </div>
@@ -776,13 +776,13 @@ export default function ReportBuilderDialog({
               </div>
             </section>
 
-            <section className="rounded-2xl border border-cyan-500/20 bg-black/30 p-4 sm:p-5">
+            <section className="rounded-2xl border border-cyan-500/20 bg-[var(--dost-surface-40)] p-4 sm:p-5">
               <div className="mb-5">
                 <p className="text-[0.62rem] font-semibold uppercase tracking-[0.25em] text-cyan-400">
                   Project Information
                 </p>
 
-                <p className="mt-1 text-xs text-zinc-500">
+                <p className="mt-1 text-xs text-[var(--dost-muted)]">
                   All report fields are optional.
                 </p>
               </div>
@@ -799,7 +799,7 @@ export default function ReportBuilderDialog({
                   </span>
 
                   <label className="group flex cursor-pointer items-center gap-4 rounded-xl border border-dashed border-cyan-500/30 bg-cyan-400/[0.03] p-4 transition-all hover:border-cyan-300/60 hover:bg-cyan-400/[0.06]">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-cyan-500/20 bg-black/50">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-cyan-500/20 bg-[var(--dost-surface-50)]">
                       {logoPreviewUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -818,13 +818,13 @@ export default function ReportBuilderDialog({
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-white">
+                      <p className="truncate text-sm font-medium text-[var(--dost-text)]">
                         {logo
                           ? logo.name
                           : "Upload logo"}
                       </p>
 
-                      <p className="mt-1 text-xs text-zinc-500">
+                      <p className="mt-1 text-xs text-[var(--dost-muted)]">
                         PNG, JPG or JPEG · max. 3 MB
                       </p>
                     </div>
@@ -978,11 +978,11 @@ export default function ReportBuilderDialog({
                             .value
                         )
                       }
-                      className={`${fieldClassName} pl-11 [color-scheme:dark]`}
+                      className={`${fieldClassName} pl-11 `}
                     />
                   </div>
 
-                  <p className="mt-2 text-[0.7rem] text-zinc-600">
+                  <p className="mt-2 text-[0.7rem] text-[var(--dost-muted-strong)]">
                     Past dates can
                     also be selected.
                   </p>
@@ -990,7 +990,7 @@ export default function ReportBuilderDialog({
               </div>
             </section>
 
-            <section className="rounded-2xl border border-cyan-500/20 bg-black/30 p-4 sm:p-5">
+            <section className="rounded-2xl border border-cyan-500/20 bg-[var(--dost-surface-40)] p-4 sm:p-5">
               <div className="mb-5">
                 <p className="text-[0.62rem] font-semibold uppercase tracking-[0.25em] text-cyan-400">
                   Prepared By
@@ -1077,7 +1077,7 @@ export default function ReportBuilderDialog({
               </div>
             </section>
 
-            <section className="rounded-2xl border border-cyan-500/20 bg-black/30 p-4 sm:p-5">
+            <section className="rounded-2xl border border-cyan-500/20 bg-[var(--dost-surface-40)] p-4 sm:p-5">
               <p className="text-[0.62rem] font-semibold uppercase tracking-[0.25em] text-cyan-400">
                 Calculation Data
               </p>
@@ -1104,19 +1104,19 @@ export default function ReportBuilderDialog({
               </div>
             </section>
 
-            <section className="rounded-2xl border border-cyan-500/20 bg-black/30 p-4 sm:p-5">
+            <section className="rounded-2xl border border-cyan-500/20 bg-[var(--dost-surface-40)] p-4 sm:p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="text-[0.62rem] font-semibold uppercase tracking-[0.25em] text-cyan-400">
                     Report Photos
                   </p>
 
-                  <p className="mt-2 text-xs leading-relaxed text-zinc-500">
+                  <p className="mt-2 text-xs leading-relaxed text-[var(--dost-muted)]">
                     Optional · Attach up to 3 photos to the PDF report.
                   </p>
                 </div>
 
-                <p className="text-[0.58rem] font-semibold uppercase tracking-[0.16em] text-zinc-600">
+                <p className="text-[0.58rem] font-semibold uppercase tracking-[0.16em] text-[var(--dost-muted-strong)]">
                   {photos.length}/{MAX_REPORT_PHOTOS}
                 </p>
               </div>
@@ -1140,7 +1140,7 @@ export default function ReportBuilderDialog({
                     ) => (
                       <div
                         key={`${preview.file.name}-${preview.file.size}-${preview.file.lastModified}-${index}`}
-                        className="group relative aspect-[4/3] overflow-hidden rounded-xl border border-cyan-500/20 bg-[#010609]"
+                        className="group relative aspect-[4/3] overflow-hidden rounded-xl border border-cyan-500/20 bg-[var(--dost-surface-80)]"
                       >
                         <div
                           className="absolute inset-0 bg-cover bg-center"
@@ -1151,7 +1151,7 @@ export default function ReportBuilderDialog({
                         />
 
                         <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-3 pb-2 pt-8">
-                          <p className="truncate text-[0.6rem] text-zinc-300">
+                          <p className="truncate text-[0.6rem] text-[var(--dost-muted-strong)]">
                             {
                               preview.file
                                 .name
@@ -1170,7 +1170,7 @@ export default function ReportBuilderDialog({
                             generating
                           }
                           aria-label={`Remove report photo ${index + 1}`}
-                          className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 bg-black/75 text-zinc-300 opacity-100 backdrop-blur-sm transition-all hover:border-red-400/50 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-40 sm:opacity-0 sm:group-hover:opacity-100"
+                          className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 bg-[var(--dost-surface-80)] text-[var(--dost-muted-strong)] opacity-100 backdrop-blur-sm transition-all hover:border-red-400/50 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-40 sm:opacity-0 sm:group-hover:opacity-100"
                         >
                           <X
                             size={15}
@@ -1198,7 +1198,7 @@ export default function ReportBuilderDialog({
                       Add report photos
                     </span>
 
-                    <span className="mt-1 block text-[0.68rem] text-zinc-500">
+                    <span className="mt-1 block text-[0.68rem] text-[var(--dost-muted)]">
                       PNG or JPG · Maximum 10 MB per photo
                     </span>
                   </span>
@@ -1236,7 +1236,7 @@ export default function ReportBuilderDialog({
           </div>
         </div>
 
-        <footer className="relative z-20 shrink-0 border-t border-cyan-500/20 bg-[#02080d]/95 px-5 py-4 shadow-[0_-15px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:px-8 sm:py-5">
+        <footer className="relative z-20 shrink-0 border-t border-cyan-500/20 bg-[var(--dost-surface-95)] px-5 py-4 shadow-[0_-15px_40px_rgba(0,0,0,0.18)] backdrop-blur-xl sm:px-8 sm:py-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <div className="min-w-0 flex-1">
               {currentPdfAccessLoading ? (
@@ -1245,7 +1245,7 @@ export default function ReportBuilderDialog({
                     PDF Export Access
                   </p>
 
-                  <p className="mt-1 text-xs text-zinc-500">
+                  <p className="mt-1 text-xs text-[var(--dost-muted)]">
                     Checking PDF export access...
                   </p>
                 </>
@@ -1266,7 +1266,7 @@ export default function ReportBuilderDialog({
                     PDF Export Credits
                   </p>
 
-                  <p className="mt-1 text-xs text-zinc-300">
+                  <p className="mt-1 text-xs text-[var(--dost-muted-strong)]">
                     {
                       currentPdfAccess.availableCredits
                     }{" "}
@@ -1285,17 +1285,17 @@ export default function ReportBuilderDialog({
                     PDF Export Required
                   </p>
 
-                  <p className="mt-1 text-xs text-zinc-400">
+                  <p className="mt-1 text-xs text-[var(--dost-muted)]">
                     No PDF export credits are available.
                   </p>
                 </>
               ) : currentPdfAccessError ? (
                 <>
-                  <p className="text-[0.58rem] font-semibold uppercase tracking-[0.2em] text-zinc-500">
+                  <p className="text-[0.58rem] font-semibold uppercase tracking-[0.2em] text-[var(--dost-muted)]">
                     PDF Export Access
                   </p>
 
-                  <p className="mt-1 max-w-xl text-xs text-zinc-500">
+                  <p className="mt-1 max-w-xl text-xs text-[var(--dost-muted)]">
                     {currentPdfAccessError}
                   </p>
                 </>
@@ -1307,7 +1307,7 @@ export default function ReportBuilderDialog({
                 type="button"
                 onClick={onClose}
                 disabled={generating}
-                className="rounded-xl border border-zinc-700 bg-black/30 px-5 py-3 text-xs font-semibold uppercase tracking-[0.15em] text-zinc-400 transition-all hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-xl border border-cyan-500/15 bg-[var(--dost-surface-30)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.15em] text-[var(--dost-muted)] transition-all hover:border-cyan-400/35 hover:text-[var(--dost-text)] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Cancel
               </button>
@@ -1362,8 +1362,8 @@ function ReportValue({
   highlight = false,
 }: ReportDataItem) {
   return (
-    <div className="bg-[#02080d] px-3 py-4">
-      <p className="text-[0.55rem] font-semibold uppercase tracking-[0.16em] text-zinc-600">
+    <div className="bg-[var(--dost-surface-95)] px-3 py-4">
+      <p className="text-[0.55rem] font-semibold uppercase tracking-[0.16em] text-[var(--dost-muted-strong)]">
         {label}
       </p>
 
@@ -1371,7 +1371,7 @@ function ReportValue({
         className={`mt-1 text-sm font-medium ${
           highlight
             ? "text-cyan-300"
-            : "text-zinc-200"
+            : "text-[var(--dost-text)]"
         }`}
       >
         {value}

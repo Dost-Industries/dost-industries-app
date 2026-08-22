@@ -11,7 +11,7 @@ import { FirebaseError } from "firebase/app";
 import {
   ArrowUpRight,
   Clock3,
-  Home,
+  Menu,
   Trash2,
 } from "lucide-react";
 
@@ -44,15 +44,12 @@ import {
 import RestorePurchases from "../components/RestorePurchases";
 
 import SubscriptionManagement from "../components/SubscriptionManagement";
+import NavigationMenu from "../components/NavigationMenu";
 
 import {
   ENTITLEMENTS,
   hasEntitlement,
 } from "../../lib/entitlements";
-
-import {
-  hasActiveDostPremiumSubscription,
-} from "../../lib/subscription-status";
 
 type PdfAccessState = {
   canExport: boolean;
@@ -74,6 +71,11 @@ export default function AccountPage() {
     isAuthenticated,
     isVerified,
   } = useAuth();
+
+  const [
+    menuOpen,
+    setMenuOpen,
+  ] = useState(false);
 
   const [
     showDeleteDialog,
@@ -165,25 +167,7 @@ export default function AccountPage() {
     setPdfAccessRefreshKey,
   ] = useState(0);
 
-  const [
-    premiumCheckoutStarting,
-    setPremiumCheckoutStarting,
-  ] = useState(false);
-
-  const [
-    premiumCheckoutError,
-    setPremiumCheckoutError,
-  ] = useState("");
-
-  const [
-    premiumReturnProcessing,
-    setPremiumReturnProcessing,
-  ] = useState(false);
-
   const paymentReturnStartedRef =
-    useRef(false);
-
-  const premiumReturnStartedRef =
     useRef(false);
 
   const hasSaveCalculations =
@@ -193,8 +177,18 @@ export default function AccountPage() {
     );
 
   const hasPremiumAccess =
-    hasActiveDostPremiumSubscription(
-      profile?.subscription
+    hasEntitlement(
+      profile?.entitlements,
+      ENTITLEMENTS.HEAT_INPUT_PREMIUM
+    ) ||
+    hasEntitlement(
+      profile?.entitlements,
+      ENTITLEMENTS.REMOVE_ADS
+    ) ||
+    hasSaveCalculations ||
+    hasEntitlement(
+      profile?.entitlements,
+      ENTITLEMENTS.PDF_EXPORT
     );
 
   useEffect(() => {
@@ -452,181 +446,6 @@ export default function AccountPage() {
     isVerified,
   ]);
 
-  useEffect(() => {
-    if (
-      loading ||
-      !user ||
-      !isAuthenticated ||
-      !isVerified ||
-      !user.emailVerified ||
-      hasPremiumAccess ||
-      premiumReturnStartedRef.current
-    ) {
-      return;
-    }
-
-    const searchParams =
-      new URLSearchParams(
-        window.location.search
-      );
-
-    if (
-      searchParams.get(
-        "premiumReturn"
-      ) !== "1"
-    ) {
-      return;
-    }
-
-    premiumReturnStartedRef.current = true;
-
-    async function processPremiumReturn() {
-      setPremiumReturnProcessing(true);
-      setPremiumCheckoutError("");
-
-      try {
-        const idToken =
-          await user!.getIdToken(true);
-
-        const validateResponse =
-          await fetch(
-            "/api/subscriptions/mollie/validate",
-            {
-              method: "POST",
-
-              headers: {
-                Authorization:
-                  `Bearer ${idToken}`,
-              },
-
-              cache: "no-store",
-            }
-          );
-
-        const validateData =
-          (await validateResponse.json()) as {
-            validated?: boolean;
-            error?: string;
-            code?: string;
-            paymentStatus?: string;
-          };
-
-        if (!validateResponse.ok) {
-          if (
-            validateData.code ===
-            "PREMIUM_PAYMENT_NOT_PAID"
-          ) {
-            throw new Error(
-              "PREMIUM_PAYMENT_NOT_PAID"
-            );
-          }
-
-          throw new Error(
-            validateData.code ||
-              "PREMIUM_VALIDATION_FAILED"
-          );
-        }
-
-        if (!validateData.validated) {
-          throw new Error(
-            "PREMIUM_VALIDATION_FAILED"
-          );
-        }
-
-        const activateResponse =
-          await fetch(
-            "/api/subscriptions/mollie/activate",
-            {
-              method: "POST",
-
-              headers: {
-                Authorization:
-                  `Bearer ${idToken}`,
-              },
-
-              cache: "no-store",
-            }
-          );
-
-        const activateData =
-          (await activateResponse.json()) as {
-            activated?: boolean;
-            error?: string;
-            code?: string;
-          };
-
-        if (!activateResponse.ok) {
-          throw new Error(
-            activateData.code ||
-              "PREMIUM_ACTIVATION_FAILED"
-          );
-        }
-
-        if (!activateData.activated) {
-          throw new Error(
-            "PREMIUM_ACTIVATION_FAILED"
-          );
-        }
-
-        /*
-         * AuthContext loads the Firestore
-         * profile during app startup.
-         *
-         * A full navigation guarantees
-         * the freshly activated
-         * subscription + entitlements are
-         * loaded before Account renders
-         * the Premium state.
-         */
-        window.location.replace(
-          "/account?premium=active"
-        );
-      } catch (error) {
-        console.error(
-          "DOST Premium return could not be processed:",
-          error
-        );
-
-        const errorCode =
-          error instanceof Error
-            ? error.message
-            : "";
-
-        setPremiumCheckoutError(
-          errorCode ===
-            "PREMIUM_PAYMENT_NOT_PAID"
-            ? "DOST Premium payment was not completed."
-            : "DOST Premium could not be activated. Please try again."
-        );
-
-        /*
-         * Remove only the browser return
-         * marker. Server-side pending
-         * billing data remains available
-         * for recovery/retry.
-         */
-        window.history.replaceState(
-          null,
-          "",
-          "/account"
-        );
-
-        premiumReturnStartedRef.current =
-          false;
-
-        setPremiumReturnProcessing(false);
-      }
-    }
-
-    void processPremiumReturn();
-  }, [
-    loading,
-    user,
-    isAuthenticated,
-    isVerified,
-    hasPremiumAccess,
-  ]);
-
   async function handleLogout() {
     if (loggingOut) {
       return;
@@ -797,88 +616,6 @@ export default function AccountPage() {
     }
   }
 
-  async function handleStartPremiumCheckout() {
-    if (
-      premiumCheckoutStarting ||
-      premiumReturnProcessing ||
-      !user ||
-      hasPremiumAccess
-    ) {
-      return;
-    }
-
-    setPremiumCheckoutStarting(true);
-    setPremiumCheckoutError("");
-
-    try {
-      const idToken =
-        await user.getIdToken(true);
-
-      const response =
-        await fetch(
-          "/api/subscriptions/mollie/create",
-          {
-            method: "POST",
-
-            headers: {
-              Authorization:
-                `Bearer ${idToken}`,
-            },
-          }
-        );
-
-      const data =
-        (await response.json()) as {
-          checkoutUrl?: string;
-          error?: string;
-          code?: string;
-        };
-
-      if (!response.ok) {
-        if (
-          data.code ===
-          "PREMIUM_ALREADY_ACTIVE"
-        ) {
-          router.refresh();
-
-          throw new Error(
-            "DOST Premium is already active."
-          );
-        }
-
-        throw new Error(
-          data.error ||
-            "Unable to start DOST Premium checkout."
-        );
-      }
-
-      if (!data.checkoutUrl) {
-        throw new Error(
-          "MOLLIE_CHECKOUT_URL_MISSING"
-        );
-      }
-
-      window.location.assign(
-        data.checkoutUrl
-      );
-    } catch (error) {
-      console.error(
-        "DOST Premium checkout could not be started:",
-        error
-      );
-
-      setPremiumCheckoutError(
-        error instanceof Error &&
-          error.message ===
-            "DOST Premium is already active."
-          ? error.message
-          : "DOST Premium checkout could not be started."
-      );
-
-      setPremiumCheckoutStarting(false);
-    }
-  }
-
   async function handleTestPdfPayment() {
     if (
       testPaymentStarting ||
@@ -935,6 +672,42 @@ export default function AccountPage() {
     }
   }
 
+  function getCalculationRoute(
+    moduleId: string
+  ): string | null {
+    switch (moduleId) {
+      case "heat-input":
+        return "/heat-input";
+
+      case "carbon-equivalent":
+        return "/ceq";
+
+      case "preheat":
+        return "/preheat";
+
+      default:
+        return null;
+    }
+  }
+
+  function getCalculationLabel(
+    moduleId: string
+  ): string {
+    switch (moduleId) {
+      case "heat-input":
+        return "Heat Input";
+
+      case "carbon-equivalent":
+        return "Carbon Equivalent";
+
+      case "preheat":
+        return "Preheat Temperature";
+
+      default:
+        return moduleId;
+    }
+  }
+
   function formatDate(
     value: unknown
   ): string {
@@ -972,53 +745,60 @@ export default function AccountPage() {
     !user.emailVerified
   ) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#020617] text-cyan-300">
+      <main className="flex min-h-screen items-center justify-center bg-[var(--dost-bg)] text-cyan-300">
         Loading account...
       </main>
     );
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#020617] px-4 py-8 text-white sm:px-6 sm:py-12">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(0,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(0,255,255,0.04)_1px,transparent_1px)] bg-[size:48px_48px]" />
-
-        <div className="absolute left-1/2 top-[-280px] h-[850px] w-[850px] -translate-x-1/2 rounded-full bg-cyan-500/10 blur-3xl" />
-
-        <div className="absolute bottom-[-220px] right-[-160px] h-[520px] w-[520px] rounded-full bg-cyan-400/10 blur-3xl" />
-      </div>
+    <main className="relative min-h-screen overflow-hidden bg-[var(--dost-bg)] px-4 py-8 text-[var(--dost-text)] sm:px-6 sm:py-12">
+      <div className="pointer-events-none absolute inset-0 dost-radial-bg" />
+      <div className="pointer-events-none absolute inset-0 dost-grid-bg" />
 
       <div className="relative z-10 mx-auto max-w-4xl">
-        <header className="relative mb-8 flex min-h-14 items-center justify-center text-center sm:mb-10 sm:min-h-16">
+        <header className="relative mb-8 flex min-h-12 items-center justify-center text-center sm:mb-10">
           <button
             type="button"
             onClick={() =>
-              router.push("/")
+              setMenuOpen(true)
             }
-            aria-label="Go to DOST Industries home"
-            title="Home"
-            className="absolute left-0 flex h-11 w-11 items-center justify-center rounded-xl border border-cyan-500/30 bg-black/40 text-cyan-300 transition-all hover:border-cyan-300/70 hover:bg-cyan-400/10 hover:shadow-[0_0_22px_rgba(0,255,255,0.12)] sm:h-12 sm:w-12"
+            aria-label="Open navigation menu"
+            aria-expanded={
+              menuOpen
+            }
+            className="absolute left-0 flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-500/25 bg-[var(--dost-surface-40)] text-cyan-300 transition hover:border-cyan-400/60 hover:bg-cyan-400/[0.06] sm:h-11 sm:w-11"
           >
-            <Home size={19} />
+            <Menu size={19} />
           </button>
 
           <div>
             <h1 className="text-2xl font-black uppercase italic tracking-[0.24em] sm:text-4xl sm:tracking-[0.35em]">
-            <span className="text-white">
-              DOST
-            </span>{" "}
-            <span className="text-cyan-400 drop-shadow-[0_0_18px_rgba(0,255,255,0.65)]">
-              INDUSTRIES
-            </span>
+              <span className="text-[var(--dost-text)]">
+                DOST
+              </span>{" "}
+              <span className="text-cyan-400 drop-shadow-[0_0_18px_rgba(0,255,255,0.65)]">
+                INDUSTRIES
+              </span>
             </h1>
 
-            <p className="mt-2 text-[0.62rem] uppercase tracking-[0.38em] text-zinc-500 sm:text-xs">
+            <p className="mt-2 text-[0.62rem] uppercase tracking-[0.38em] text-[var(--dost-muted)] sm:text-xs">
               Account Hub
             </p>
           </div>
         </header>
 
-        <section className="relative overflow-hidden rounded-[28px] border border-cyan-500/25 bg-black/55 p-5 shadow-[0_0_60px_rgba(0,255,255,0.10)] backdrop-blur-xl sm:p-8">
+        <NavigationMenu
+          open={menuOpen}
+          isAuthenticated={
+            Boolean(user)
+          }
+          onClose={() =>
+            setMenuOpen(false)
+          }
+        />
+
+        <section className="relative overflow-hidden rounded-[28px] border border-cyan-500/25 bg-[var(--dost-surface-60)] p-5 shadow-[0_0_60px_rgba(0,255,255,0.10)] backdrop-blur-xl sm:p-8">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(0,255,255,0.08),transparent_58%)]" />
 
           <div className="relative z-10">
@@ -1033,7 +813,7 @@ export default function AccountPage() {
                     user.email}
                 </h2>
 
-                <p className="mt-2 truncate text-sm text-zinc-400 sm:text-base">
+                <p className="mt-2 truncate text-sm text-[var(--dost-muted)] sm:text-base">
                   {user.email}
                 </p>
               </div>
@@ -1053,7 +833,7 @@ export default function AccountPage() {
 
             <div className="mt-7 grid gap-4 sm:grid-cols-3">
               <div className="rounded-2xl border border-cyan-500/20 bg-cyan-400/5 p-5">
-                <p className="text-xs uppercase tracking-[0.25em] text-zinc-500">
+                <p className="text-xs uppercase tracking-[0.25em] text-[var(--dost-muted)]">
                   Access
                 </p>
 
@@ -1065,30 +845,17 @@ export default function AccountPage() {
               </div>
 
               <div className="rounded-2xl border border-cyan-500/20 bg-cyan-400/5 p-5">
-                <p className="text-xs uppercase tracking-[0.25em] text-zinc-500">
+                <p className="text-xs uppercase tracking-[0.25em] text-[var(--dost-muted)]">
                   Available Tool
                 </p>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    router.push("/")
-                  }
-                  className="group mt-2 inline-flex items-center gap-2 text-left text-2xl font-semibold text-cyan-300 transition hover:text-cyan-200"
-                >
-                  <span className="border-b border-transparent transition group-hover:border-cyan-300/60">
-                    Heat Input
-                  </span>
-
-                  <ArrowUpRight
-                    size={18}
-                    className="transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-                  />
-                </button>
+                <p className="mt-2 text-2xl font-semibold text-cyan-300">
+                  Heat Input
+                </p>
               </div>
 
               <div className="rounded-2xl border border-cyan-500/20 bg-cyan-400/5 p-5">
-                <p className="text-xs uppercase tracking-[0.25em] text-zinc-500">
+                <p className="text-xs uppercase tracking-[0.25em] text-[var(--dost-muted)]">
                   PDF Exports
                 </p>
 
@@ -1101,13 +868,13 @@ export default function AccountPage() {
                 </p>
 
                 {!pdfAccessLoading &&
-  pdfAccess && (
-    <p className="mt-2 text-xs text-zinc-500">
-      {pdfAccess.premium
-        ? `${pdfAccess.availableCredits} purchased credits preserved`
-        : "Purchased PDF export credits"}
-    </p>
-  )}
+                  pdfAccess &&
+                  !pdfAccess.premium && (
+                    <p className="mt-2 text-xs text-[var(--dost-muted)]">
+                      Purchased PDF export
+                      credits
+                    </p>
+                  )}
               </div>
             </div>
 
@@ -1118,7 +885,7 @@ export default function AccountPage() {
             )}
 
             {!hasPremiumAccess && (
-              <div className="mt-6 rounded-2xl border border-cyan-400/25 bg-black/45 p-5 sm:p-6">
+              <div className="mt-6 rounded-2xl border border-cyan-400/25 bg-[var(--dost-surface-40)] p-5 sm:p-6">
                 <p className="text-xs uppercase tracking-[0.3em] text-cyan-400">
                   DOST Premium
                 </p>
@@ -1128,7 +895,7 @@ export default function AccountPage() {
                   workspace
                 </h3>
 
-                <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+                <p className="mt-2 text-sm leading-relaxed text-[var(--dost-muted)]">
                   Remove advertisements,
                   save calculations and export
                   professional PDF reports.
@@ -1136,27 +903,10 @@ export default function AccountPage() {
 
                 <button
                   type="button"
-                  onClick={() =>
-                    void handleStartPremiumCheckout()
-                  }
-                  disabled={
-                    premiumCheckoutStarting ||
-                    premiumReturnProcessing
-                  }
-                  className="mt-5 w-full rounded-xl border border-cyan-400/40 bg-cyan-400/10 px-5 py-3 text-sm font-bold uppercase tracking-[0.16em] text-cyan-300 transition hover:border-cyan-300/70 hover:bg-cyan-400/15 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                  className="mt-5 rounded-xl border border-cyan-400/40 bg-cyan-400/10 px-5 py-3 text-sm font-bold uppercase tracking-[0.2em] text-cyan-300 transition hover:bg-cyan-400/15"
                 >
-                  {premiumReturnProcessing
-                    ? "Activating DOST Premium..."
-                    : premiumCheckoutStarting
-                      ? "Opening Mollie..."
-                      : "Upgrade to DOST Premium — €4.99/month"}
+                  Upgrade Soon
                 </button>
-
-                {premiumCheckoutError && (
-                  <p className="mt-3 rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-                    {premiumCheckoutError}
-                  </p>
-                )}
               </div>
             )}
 
@@ -1170,13 +920,13 @@ export default function AccountPage() {
                   Professional PDF Export
                 </h3>
 
-                <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+                <p className="mt-2 text-sm leading-relaxed text-[var(--dost-muted)]">
                   Start a temporary €1.29
                   Mollie test payment. No real
                   money will be charged.
                 </p>
 
-                <div className="mt-4 rounded-xl border border-amber-400/15 bg-black/25 px-4 py-3">
+                <div className="mt-4 rounded-xl border border-amber-400/15 bg-[var(--dost-surface-30)] px-4 py-3">
                   <p className="text-[0.65rem] font-bold uppercase tracking-[0.18em] text-amber-300/70">
                     Available PDF Exports
                   </p>
@@ -1223,7 +973,7 @@ export default function AccountPage() {
             )}
 
             {hasPremiumAccess && (
-              <div className="mt-6 rounded-2xl border border-cyan-400/25 bg-black/45 p-5 sm:p-6">
+              <div className="mt-6 rounded-2xl border border-cyan-400/25 bg-[var(--dost-surface-40)] p-5 sm:p-6">
                 <p className="text-xs uppercase tracking-[0.3em] text-cyan-400">
                   DOST Premium
                 </p>
@@ -1233,15 +983,15 @@ export default function AccountPage() {
                 </h3>
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-xl border border-cyan-500/15 bg-cyan-400/5 px-4 py-3 text-sm text-zinc-300">
+                  <div className="rounded-xl border border-cyan-500/15 bg-cyan-400/5 px-4 py-3 text-sm text-[var(--dost-text)]">
                     No advertisements
                   </div>
 
-                  <div className="rounded-xl border border-cyan-500/15 bg-cyan-400/5 px-4 py-3 text-sm text-zinc-300">
+                  <div className="rounded-xl border border-cyan-500/15 bg-cyan-400/5 px-4 py-3 text-sm text-[var(--dost-text)]">
                     Save calculations
                   </div>
 
-                  <div className="rounded-xl border border-cyan-500/15 bg-cyan-400/5 px-4 py-3 text-sm text-zinc-300">
+                  <div className="rounded-xl border border-cyan-500/15 bg-cyan-400/5 px-4 py-3 text-sm text-[var(--dost-text)]">
                     PDF export
                   </div>
                 </div>
@@ -1249,7 +999,7 @@ export default function AccountPage() {
             )}
 
             {hasSaveCalculations && (
-              <div className="mt-6 rounded-2xl border border-cyan-400/25 bg-black/45 p-5 sm:p-6">
+              <div className="mt-6 rounded-2xl border border-cyan-400/25 bg-[var(--dost-surface-40)] p-5 sm:p-6">
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className="text-xs uppercase tracking-[0.3em] text-cyan-400">
@@ -1268,7 +1018,7 @@ export default function AccountPage() {
                 </div>
 
                 {calculationsLoading && (
-                  <p className="mt-5 text-sm text-zinc-500">
+                  <p className="mt-5 text-sm text-[var(--dost-muted)]">
                     Loading saved
                     calculations...
                   </p>
@@ -1278,7 +1028,7 @@ export default function AccountPage() {
                   calculations.length ===
                     0 &&
                   !calculationsError && (
-                    <div className="mt-5 rounded-xl border border-cyan-500/15 bg-cyan-400/5 px-4 py-5 text-sm text-zinc-400">
+                    <div className="mt-5 rounded-xl border border-cyan-500/15 bg-cyan-400/5 px-4 py-5 text-sm text-[var(--dost-muted)]">
                       No saved calculations
                       yet.
                     </div>
@@ -1302,6 +1052,16 @@ export default function AccountPage() {
                             calculation.moduleId ===
                             "heat-input";
 
+                          const calculationRoute =
+                            getCalculationRoute(
+                              calculation.moduleId
+                            );
+
+                          const calculationLabel =
+                            getCalculationLabel(
+                              calculation.moduleId
+                            );
+
                           return (
                             <div
                               key={
@@ -1311,13 +1071,32 @@ export default function AccountPage() {
                             >
                               <div className="flex items-start justify-between gap-4">
                                 <div className="min-w-0">
-                                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-300">
-                                    {isHeatInput
-                                      ? "Heat Input"
-                                      : calculation.moduleId}
-                                  </p>
+                                  {calculationRoute ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        router.push(
+                                          calculationRoute
+                                        )
+                                      }
+                                      className="group inline-flex items-center gap-2 text-left text-xs font-bold uppercase tracking-[0.2em] text-cyan-300 transition hover:text-cyan-200"
+                                    >
+                                      <span className="border-b border-transparent transition group-hover:border-cyan-300/60">
+                                        {calculationLabel}
+                                      </span>
 
-                                  <p className="mt-1 text-xs text-zinc-500">
+                                      <ArrowUpRight
+                                        size={14}
+                                        className="transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                                      />
+                                    </button>
+                                  ) : (
+                                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-300">
+                                      {calculationLabel}
+                                    </p>
+                                  )}
+
+                                  <p className="mt-1 text-xs text-[var(--dost-muted)]">
                                     {formatDate(
                                       calculation.createdAt
                                     )}
@@ -1349,12 +1128,12 @@ export default function AccountPage() {
                               {isHeatInput && (
                                 <>
                                   <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                                    <div className="rounded-lg border border-cyan-500/10 bg-black/30 px-3 py-2">
-                                      <p className="text-[0.6rem] uppercase tracking-[0.18em] text-zinc-500">
+                                    <div className="rounded-lg border border-cyan-500/10 bg-[var(--dost-surface-30)] px-3 py-2">
+                                      <p className="text-[0.6rem] uppercase tracking-[0.18em] text-[var(--dost-muted)]">
                                         Voltage
                                       </p>
 
-                                      <p className="mt-1 text-sm text-white">
+                                      <p className="mt-1 text-sm text-[var(--dost-text)]">
                                         {String(
                                           inputs.voltage ??
                                             "-"
@@ -1363,12 +1142,12 @@ export default function AccountPage() {
                                       </p>
                                     </div>
 
-                                    <div className="rounded-lg border border-cyan-500/10 bg-black/30 px-3 py-2">
-                                      <p className="text-[0.6rem] uppercase tracking-[0.18em] text-zinc-500">
+                                    <div className="rounded-lg border border-cyan-500/10 bg-[var(--dost-surface-30)] px-3 py-2">
+                                      <p className="text-[0.6rem] uppercase tracking-[0.18em] text-[var(--dost-muted)]">
                                         Amperage
                                       </p>
 
-                                      <p className="mt-1 text-sm text-white">
+                                      <p className="mt-1 text-sm text-[var(--dost-text)]">
                                         {String(
                                           inputs.amperage ??
                                             "-"
@@ -1377,12 +1156,12 @@ export default function AccountPage() {
                                       </p>
                                     </div>
 
-                                    <div className="rounded-lg border border-cyan-500/10 bg-black/30 px-3 py-2">
-                                      <p className="text-[0.6rem] uppercase tracking-[0.18em] text-zinc-500">
+                                    <div className="rounded-lg border border-cyan-500/10 bg-[var(--dost-surface-30)] px-3 py-2">
+                                      <p className="text-[0.6rem] uppercase tracking-[0.18em] text-[var(--dost-muted)]">
                                         Speed
                                       </p>
 
-                                      <p className="mt-1 text-sm text-white">
+                                      <p className="mt-1 text-sm text-[var(--dost-text)]">
                                         {String(
                                           inputs.travelSpeed ??
                                             "-"
@@ -1392,13 +1171,13 @@ export default function AccountPage() {
                                     </div>
                                   </div>
 
-                                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-400/20 bg-black/35 px-4 py-3">
+                                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-400/20 bg-[var(--dost-surface-40)] px-4 py-3">
                                     <div>
-                                      <p className="text-[0.6rem] uppercase tracking-[0.18em] text-zinc-500">
+                                      <p className="text-[0.6rem] uppercase tracking-[0.18em] text-[var(--dost-muted)]">
                                         Process
                                       </p>
 
-                                      <p className="mt-1 text-sm text-zinc-300">
+                                      <p className="mt-1 text-sm text-[var(--dost-text)]">
                                         {String(
                                           inputs.process ??
                                             "-"
@@ -1407,7 +1186,7 @@ export default function AccountPage() {
                                     </div>
 
                                     <div className="text-right">
-                                      <p className="text-[0.6rem] uppercase tracking-[0.18em] text-zinc-500">
+                                      <p className="text-[0.6rem] uppercase tracking-[0.18em] text-[var(--dost-muted)]">
                                         Result
                                       </p>
 
@@ -1468,7 +1247,7 @@ export default function AccountPage() {
           aria-modal="true"
           aria-labelledby="delete-account-title"
         >
-          <div className="w-full max-w-lg rounded-[24px] border border-red-500/35 bg-[#020617] p-6 shadow-[0_0_70px_rgba(239,68,68,0.18)] sm:p-8">
+          <div className="w-full max-w-lg rounded-[24px] border border-red-500/35 bg-[var(--dost-bg)] p-6 text-[var(--dost-text)] shadow-[0_0_70px_rgba(239,68,68,0.18)] sm:p-8">
             <p className="text-xs font-bold uppercase tracking-[0.3em] text-red-400">
               Permanent action
             </p>
@@ -1480,7 +1259,7 @@ export default function AccountPage() {
               Delete your account?
             </h2>
 
-            <p className="mt-3 text-sm leading-relaxed text-zinc-400">
+            <p className="mt-3 text-sm leading-relaxed text-[var(--dost-muted)]">
               Your account, saved
               calculations and associated
               account data will be
@@ -1489,7 +1268,7 @@ export default function AccountPage() {
             </p>
 
             <label className="mt-6 block">
-              <span className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-400">
+              <span className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--dost-muted)]">
                 Current password
               </span>
 
@@ -1503,13 +1282,13 @@ export default function AccountPage() {
                 }
                 autoComplete="current-password"
                 disabled={deleting}
-                className="mt-2 w-full rounded-xl border border-cyan-500/25 bg-black/50 px-4 py-3 text-white outline-none transition placeholder:text-zinc-700 focus:border-cyan-400/70 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-2 w-full rounded-xl border border-cyan-500/25 bg-[var(--dost-input-bg)] px-4 py-3 text-[var(--dost-text)] outline-none transition placeholder:text-[var(--dost-muted)] focus:border-cyan-400/70 disabled:cursor-not-allowed disabled:opacity-60"
                 placeholder="Enter your password"
               />
             </label>
 
             <label className="mt-4 block">
-              <span className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-400">
+              <span className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--dost-muted)]">
                 Type DELETE to confirm
               </span>
 
@@ -1523,7 +1302,7 @@ export default function AccountPage() {
                 }
                 autoComplete="off"
                 disabled={deleting}
-                className="mt-2 w-full rounded-xl border border-cyan-500/25 bg-black/50 px-4 py-3 text-white outline-none transition placeholder:text-zinc-700 focus:border-cyan-400/70 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-2 w-full rounded-xl border border-cyan-500/25 bg-[var(--dost-input-bg)] px-4 py-3 text-[var(--dost-text)] outline-none transition placeholder:text-[var(--dost-muted)] focus:border-cyan-400/70 disabled:cursor-not-allowed disabled:opacity-60"
                 placeholder="DELETE"
               />
             </label>
@@ -1541,7 +1320,7 @@ export default function AccountPage() {
                   closeDeleteDialog
                 }
                 disabled={deleting}
-                className="rounded-xl border border-zinc-700 bg-white/5 px-5 py-3 text-sm font-bold uppercase tracking-[0.18em] text-zinc-300 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-xl border border-cyan-500/20 bg-[var(--dost-surface-30)] px-5 py-3 text-sm font-bold uppercase tracking-[0.18em] text-[var(--dost-text)] transition hover:bg-cyan-400/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>

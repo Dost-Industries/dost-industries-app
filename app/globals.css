@@ -1,8 +1,56 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+:root,
+html[data-theme="dark"] {
+  --background: #020617;
+  --foreground: #ffffff;
+
+  --dost-bg: #020617;
+  --dost-text: #ffffff;
+  --dost-muted: #71717a;
+  --dost-muted-strong: #52525b;
+
+  --dost-surface-95: rgba(2, 6, 23, 0.95);
+  --dost-surface-80: rgba(0, 0, 0, 0.8);
+  --dost-surface-70: rgba(0, 0, 0, 0.7);
+  --dost-surface-60: rgba(0, 0, 0, 0.6);
+  --dost-surface-50: rgba(0, 0, 0, 0.5);
+  --dost-surface-40: rgba(0, 0, 0, 0.4);
+  --dost-surface-30: rgba(0, 0, 0, 0.3);
+
+  --dost-input-bg: rgba(0, 0, 0, 0.7);
+  --dost-switch-off: #27272a;
+
+  --dost-grid: rgba(0, 255, 255, 0.025);
+  --dost-glow: rgba(0, 255, 255, 0.07);
+  --dost-panel-glow: rgba(0, 255, 255, 0.08);
+  --dost-overlay: rgba(0, 0, 0, 0.7);
+}
+
+html[data-theme="light"] {
+  --background: #f4f8fb;
+  --foreground: #0f172a;
+
+  --dost-bg: #f4f8fb;
+  --dost-text: #0f172a;
+  --dost-muted: #64748b;
+  --dost-muted-strong: #475569;
+
+  --dost-surface-95: rgba(255, 255, 255, 0.97);
+  --dost-surface-80: rgba(255, 255, 255, 0.9);
+  --dost-surface-70: rgba(255, 255, 255, 0.86);
+  --dost-surface-60: rgba(255, 255, 255, 0.82);
+  --dost-surface-50: rgba(255, 255, 255, 0.76);
+  --dost-surface-40: rgba(255, 255, 255, 0.7);
+  --dost-surface-30: rgba(255, 255, 255, 0.6);
+
+  --dost-input-bg: rgba(255, 255, 255, 0.96);
+  --dost-switch-off: #cbd5e1;
+
+  --dost-grid: rgba(8, 145, 178, 0.06);
+  --dost-glow: rgba(6, 182, 212, 0.12);
+  --dost-panel-glow: rgba(6, 182, 212, 0.1);
+  --dost-overlay: rgba(15, 23, 42, 0.34);
 }
 
 @theme inline {
@@ -12,15 +60,106 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background: var(--dost-bg);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  min-height: 100vh;
+  background: var(--dost-bg);
+  color: var(--dost-text);
   font-family: Arial, Helvetica, sans-serif;
+  transition:
+    background-color 180ms ease,
+    color 180ms ease;
+}
+
+.dost-radial-bg {
+  background:
+    radial-gradient(
+      circle at top,
+      var(--dost-glow),
+      transparent 45%
+    );
+}
+
+.dost-panel-radial-bg {
+  background:
+    radial-gradient(
+      circle at top,
+      var(--dost-panel-glow),
+      transparent 60%
+    );
+}
+
+.dost-grid-bg {
+  background-image:
+    linear-gradient(
+      var(--dost-grid) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      var(--dost-grid) 1px,
+      transparent 1px
+    );
+  background-size: 48px 48px;
+}
+
+/*
+ * Compatibility layer for existing DOST screens.
+ * New modules should prefer the --dost-* variables
+ * directly, but these overrides make the global
+ * Light theme work immediately across legacy
+ * dark utility classes too.
+ */
+html[data-theme="light"] [class~="bg-[#020617]"] {
+  background-color: var(--dost-bg) !important;
+}
+
+html[data-theme="light"] [class~="bg-black/80"] {
+  background-color: var(--dost-surface-80) !important;
+}
+
+html[data-theme="light"] [class~="bg-black/70"] {
+  background-color: var(--dost-surface-70) !important;
+}
+
+html[data-theme="light"] [class~="bg-black/60"] {
+  background-color: var(--dost-surface-60) !important;
+}
+
+html[data-theme="light"] [class~="bg-black/50"] {
+  background-color: var(--dost-surface-50) !important;
+}
+
+html[data-theme="light"] [class~="bg-black/40"] {
+  background-color: var(--dost-surface-40) !important;
+}
+
+html[data-theme="light"] [class~="bg-black/30"] {
+  background-color: var(--dost-surface-30) !important;
+}
+
+html[data-theme="light"] [class~="bg-zinc-950"],
+html[data-theme="light"] [class~="bg-zinc-900"] {
+  background-color: rgba(248, 250, 252, 0.96) !important;
+}
+
+html[data-theme="light"] [class~="bg-zinc-800"] {
+  background-color: var(--dost-switch-off) !important;
+}
+
+html[data-theme="light"] [class~="text-white"] {
+  color: var(--dost-text) !important;
+}
+
+html[data-theme="light"] [class~="text-zinc-300"],
+html[data-theme="light"] [class~="text-zinc-400"],
+html[data-theme="light"] [class~="text-zinc-500"] {
+  color: var(--dost-muted) !important;
+}
+
+html[data-theme="light"] [class~="text-zinc-600"] {
+  color: var(--dost-muted-strong) !important;
 }

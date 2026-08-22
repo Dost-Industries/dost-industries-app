@@ -21,6 +21,19 @@ import {
 } from "../../../../lib/heat-input";
 
 import {
+  calculateCarbonEquivalent,
+} from "../../../../lib/carbon-equivalent";
+
+import {
+  calculatePreheat,
+} from "../../../../lib/preheat";
+
+import {
+  CET_RANGE,
+  PREHEAT_RANGES,
+} from "../../../../lib/preheat-validation";
+
+import {
   consumePdfExportCreditServer,
 } from "../../../../lib/payments";
 
@@ -290,6 +303,33 @@ function readPositiveNumberText(
   ) {
     throw new ReportRequestError(
       `${key} must be greater than 0.`
+    );
+  }
+
+  return value;
+}
+
+function readNonNegativeNumberText(
+  formData: FormData,
+  key: string
+): string {
+  const value =
+    readRequiredText(
+      formData,
+      key,
+      50
+    );
+
+  const number =
+    Number(value);
+
+  if (
+    !Number.isFinite(number) ||
+    number < 0 ||
+    number > 100
+  ) {
+    throw new ReportRequestError(
+      `${key} must be between 0 and 100.`
     );
   }
 
@@ -636,14 +676,19 @@ async function resolvePdfAccess(
   };
 }
 
-function createReportId(): string {
+function createReportId(
+  prefix:
+    | "HI"
+    | "CEQ"
+    | "PRE"
+): string {
   const randomPart =
     randomUUID()
       .replace(/-/g, "")
       .slice(0, 10)
       .toUpperCase();
 
-  return `HI-${randomPart}`;
+  return `${prefix}-${randomPart}`;
 }
 
 function formatInputNumber(
@@ -720,9 +765,527 @@ export async function POST(
         100
       );
 
+    let reportPrefix:
+      | "HI"
+      | "CEQ"
+      | "PRE";
+
+    let reportTitle: string;
+
+    let calculationData: Array<{
+      label: string;
+      value: string;
+      highlight?: boolean;
+    }>;
+
+    let formula: string;
+
     if (
-      moduleId !== "heat-input"
+      moduleId ===
+        "heat-input"
     ) {
+      const voltage =
+        readPositiveNumberText(
+          formData,
+          "voltage"
+        );
+
+      const amperage =
+        readPositiveNumberText(
+          formData,
+          "amperage"
+        );
+
+      const travelSpeed =
+        readPositiveNumberText(
+          formData,
+          "travelSpeed"
+        );
+
+      const processValue =
+        readRequiredText(
+          formData,
+          "process",
+          50
+        );
+
+      if (
+        !isWeldingProcess(
+          processValue
+        )
+      ) {
+        throw new ReportRequestError(
+          "Welding process is invalid."
+        );
+      }
+
+      const useFactor =
+        readBoolean(
+          formData,
+          "useFactor"
+        );
+
+      const efficiency =
+        PROCESS_EFFICIENCY[
+          processValue
+        ];
+
+      const heatInput =
+        calculateHeatInput(
+          voltage,
+          amperage,
+          travelSpeed,
+          efficiency,
+          useFactor
+        );
+
+      if (heatInput === null) {
+        throw new ReportRequestError(
+          "The Heat Input calculation is invalid."
+        );
+      }
+
+      reportPrefix = "HI";
+
+      reportTitle =
+        "Heat Input Calculation";
+
+      calculationData = [
+        {
+          label: "Voltage",
+          value:
+            `${formatInputNumber(
+              voltage
+            )} V`,
+        },
+        {
+          label: "Amperage",
+          value:
+            `${formatInputNumber(
+              amperage
+            )} A`,
+        },
+        {
+          label:
+            "Travel Speed",
+          value:
+            `${formatInputNumber(
+              travelSpeed
+            )} mm/min`,
+        },
+        {
+          label: "Process",
+          value:
+            processValue,
+        },
+        {
+          label: "K-Factor",
+          value:
+            useFactor
+              ? efficiency.toFixed(
+                  2
+                )
+              : "Not applied",
+        },
+        {
+          label: "Heat Input",
+          value:
+            `${heatInput.toFixed(
+              2
+            )} kJ/mm`,
+          highlight: true,
+        },
+      ];
+
+      formula =
+        useFactor
+          ? "HI = (V x A x 60 x k) / (1000 x S)"
+          : "HI = (V x A x 60) / (1000 x S)";
+    } else if (
+      moduleId ===
+        "carbon-equivalent"
+    ) {
+      const carbon =
+        readNonNegativeNumberText(
+          formData,
+          "carbon"
+        );
+
+      const manganese =
+        readNonNegativeNumberText(
+          formData,
+          "manganese"
+        );
+
+      const chromium =
+        readNonNegativeNumberText(
+          formData,
+          "chromium"
+        );
+
+      const molybdenum =
+        readNonNegativeNumberText(
+          formData,
+          "molybdenum"
+        );
+
+      const vanadium =
+        readNonNegativeNumberText(
+          formData,
+          "vanadium"
+        );
+
+      const nickel =
+        readNonNegativeNumberText(
+          formData,
+          "nickel"
+        );
+
+      const copper =
+        readNonNegativeNumberText(
+          formData,
+          "copper"
+        );
+
+      const carbonEquivalent =
+        calculateCarbonEquivalent({
+          carbon,
+          manganese,
+          chromium,
+          molybdenum,
+          vanadium,
+          nickel,
+          copper,
+        });
+
+      if (
+        carbonEquivalent ===
+        null
+      ) {
+        throw new ReportRequestError(
+          "The Carbon Equivalent calculation is invalid."
+        );
+      }
+
+      reportPrefix = "CEQ";
+
+      reportTitle =
+        "Carbon Equivalent Calculation";
+
+      calculationData = [
+        {
+          label: "Carbon (C)",
+          value:
+            `${formatInputNumber(
+              carbon
+            )} %`,
+        },
+        {
+          label:
+            "Manganese (Mn)",
+          value:
+            `${formatInputNumber(
+              manganese
+            )} %`,
+        },
+        {
+          label:
+            "Chromium (Cr)",
+          value:
+            `${formatInputNumber(
+              chromium
+            )} %`,
+        },
+        {
+          label:
+            "Molybdenum (Mo)",
+          value:
+            `${formatInputNumber(
+              molybdenum
+            )} %`,
+        },
+        {
+          label:
+            "Vanadium (V)",
+          value:
+            `${formatInputNumber(
+              vanadium
+            )} %`,
+        },
+        {
+          label: "Nickel (Ni)",
+          value:
+            `${formatInputNumber(
+              nickel
+            )} %`,
+        },
+        {
+          label: "Copper (Cu)",
+          value:
+            `${formatInputNumber(
+              copper
+            )} %`,
+        },
+        {
+          label:
+            "Carbon Equivalent",
+          value:
+            carbonEquivalent.toFixed(
+              3
+            ),
+          highlight: true,
+        },
+      ];
+
+      formula =
+        "CEq = C + Mn / 6 + (Cr + Mo + V) / 5 + (Ni + Cu) / 15";
+    } else if (
+      moduleId ===
+        "preheat"
+    ) {
+      const carbon =
+        readNonNegativeNumberText(
+          formData,
+          "carbon"
+        );
+
+      const manganese =
+        readNonNegativeNumberText(
+          formData,
+          "manganese"
+        );
+
+      const molybdenum =
+        readNonNegativeNumberText(
+          formData,
+          "molybdenum"
+        );
+
+      const chromium =
+        readNonNegativeNumberText(
+          formData,
+          "chromium"
+        );
+
+      const copper =
+        readNonNegativeNumberText(
+          formData,
+          "copper"
+        );
+
+      const nickel =
+        readNonNegativeNumberText(
+          formData,
+          "nickel"
+        );
+
+      const thickness =
+        readNonNegativeNumberText(
+          formData,
+          "thickness"
+        );
+
+      const hydrogen =
+        readNonNegativeNumberText(
+          formData,
+          "hydrogen"
+        );
+
+      const heatInput =
+        readNonNegativeNumberText(
+          formData,
+          "heatInput"
+        );
+
+      const numericInputs = {
+        carbon:
+          Number(carbon),
+        manganese:
+          Number(manganese),
+        molybdenum:
+          Number(molybdenum),
+        chromium:
+          Number(chromium),
+        copper:
+          Number(copper),
+        nickel:
+          Number(nickel),
+        thickness:
+          Number(thickness),
+        hydrogen:
+          Number(hydrogen),
+        heatInput:
+          Number(heatInput),
+      };
+
+      const rangeEntries = [
+        [
+          "carbon",
+          numericInputs.carbon,
+        ],
+        [
+          "manganese",
+          numericInputs.manganese,
+        ],
+        [
+          "molybdenum",
+          numericInputs.molybdenum,
+        ],
+        [
+          "chromium",
+          numericInputs.chromium,
+        ],
+        [
+          "copper",
+          numericInputs.copper,
+        ],
+        [
+          "nickel",
+          numericInputs.nickel,
+        ],
+        [
+          "thickness",
+          numericInputs.thickness,
+        ],
+        [
+          "hydrogen",
+          numericInputs.hydrogen,
+        ],
+        [
+          "heatInput",
+          numericInputs.heatInput,
+        ],
+      ] as const;
+
+      for (
+        const [
+          field,
+          value,
+        ] of rangeEntries
+      ) {
+        const range =
+          PREHEAT_RANGES[
+            field
+          ];
+
+        if (
+          value < range.min ||
+          value > range.max
+        ) {
+          throw new ReportRequestError(
+            `${field} is outside the allowed range for this calculation method.`
+          );
+        }
+      }
+
+      const preheat =
+        calculatePreheat({
+          carbon,
+          manganese,
+          molybdenum,
+          chromium,
+          copper,
+          nickel,
+          thickness,
+          hydrogen,
+          heatInput,
+        });
+
+      if (!preheat) {
+        throw new ReportRequestError(
+          "The Preheat calculation is invalid."
+        );
+      }
+
+      if (
+        preheat.cet <
+          CET_RANGE.min ||
+        preheat.cet >
+          CET_RANGE.max
+      ) {
+        throw new ReportRequestError(
+          "Calculated CET is outside the allowed range for this calculation method."
+        );
+      }
+
+      reportPrefix =
+        "PRE";
+
+      reportTitle =
+        "Preheat Temperature Calculation";
+
+      calculationData = [
+        {
+          label: "C / Mn",
+          value:
+            `${formatInputNumber(
+              carbon
+            )} / ${formatInputNumber(
+              manganese
+            )} %`,
+        },
+        {
+          label: "Mo / Cr",
+          value:
+            `${formatInputNumber(
+              molybdenum
+            )} / ${formatInputNumber(
+              chromium
+            )} %`,
+        },
+        {
+          label: "Cu / Ni",
+          value:
+            `${formatInputNumber(
+              copper
+            )} / ${formatInputNumber(
+              nickel
+            )} %`,
+        },
+        {
+          label:
+            "Plate Thickness",
+          value:
+            `${formatInputNumber(
+              thickness
+            )} mm`,
+        },
+        {
+          label:
+            "Hydrogen Content",
+          value:
+            `${formatInputNumber(
+              hydrogen
+            )} ml/100g`,
+        },
+        {
+          label: "Heat Input",
+          value:
+            `${formatInputNumber(
+              heatInput
+            )} kJ/mm`,
+        },
+        {
+          label: "CET",
+          value:
+            `${preheat.cet.toFixed(
+              3
+            )} %`,
+        },
+        {
+          label:
+            "Preheat Temperature",
+          value:
+            `${preheat.preheatTemperature.toFixed(
+              0
+            )} °C`,
+          highlight: true,
+        },
+      ];
+
+      formula =
+        "Tp = 697 x CET + 160 x tanh(d / 35) + 62 x HD^0.35 + (53 x CET - 32) x Q - 328";
+    } else {
       return NextResponse.json(
         {
           error:
@@ -731,67 +1294,6 @@ export async function POST(
         {
           status: 400,
         }
-      );
-    }
-
-    const voltage =
-      readPositiveNumberText(
-        formData,
-        "voltage"
-      );
-
-    const amperage =
-      readPositiveNumberText(
-        formData,
-        "amperage"
-      );
-
-    const travelSpeed =
-      readPositiveNumberText(
-        formData,
-        "travelSpeed"
-      );
-
-    const processValue =
-      readRequiredText(
-        formData,
-        "process",
-        50
-      );
-
-    if (
-      !isWeldingProcess(
-        processValue
-      )
-    ) {
-      throw new ReportRequestError(
-        "Welding process is invalid."
-      );
-    }
-
-    const useFactor =
-      readBoolean(
-        formData,
-        "useFactor"
-      );
-
-    const efficiency =
-      PROCESS_EFFICIENCY[
-        processValue
-      ];
-
-    const heatInput =
-      calculateHeatInput(
-        voltage,
-        amperage,
-        travelSpeed,
-        efficiency,
-        useFactor
-      );
-
-    if (heatInput === null) {
-      throw new ReportRequestError(
-        "The Heat Input calculation is invalid."
       );
     }
 
@@ -875,70 +1377,9 @@ export async function POST(
     }
 
     const reportId =
-      createReportId();
-
-    const calculationData = [
-      {
-        label: "Voltage",
-
-        value:
-          `${formatInputNumber(
-            voltage
-          )} V`,
-      },
-
-      {
-        label: "Amperage",
-
-        value:
-          `${formatInputNumber(
-            amperage
-          )} A`,
-      },
-
-      {
-        label:
-          "Travel Speed",
-
-        value:
-          `${formatInputNumber(
-            travelSpeed
-          )} mm/min`,
-      },
-
-      {
-        label: "Process",
-
-        value:
-          processValue,
-      },
-
-      {
-        label: "K-Factor",
-
-        value: useFactor
-          ? efficiency.toFixed(
-              2
-            )
-          : "Not applied",
-      },
-
-      {
-        label: "Heat Input",
-
-        value:
-          `${heatInput.toFixed(
-            2
-          )} kJ/mm`,
-
-        highlight: true,
-      },
-    ];
-
-    const formula =
-      useFactor
-        ? "HI = (V x A x 60 x k) / (1000 x S)"
-        : "HI = (V x A x 60) / (1000 x S)";
+      createReportId(
+        reportPrefix
+      );
 
     let pdfBytes: Uint8Array;
 
@@ -947,8 +1388,7 @@ export async function POST(
         await generatePdfReport({
           reportId,
 
-          reportTitle:
-            "Heat Input Calculation",
+          reportTitle,
 
           projectName,
 

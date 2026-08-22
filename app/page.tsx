@@ -1,279 +1,88 @@
 "use client";
 
-import { useState } from "react";
 import {
-  Activity,
-  FileDown,
-  Flame,
+  ArrowRight,
+  Calculator,
+  FileText,
   Gauge,
   Menu,
   Save,
-  Settings2,
+  ShieldCheck,
+  Sigma,
+  Sparkles,
+  ThermometerSun,
   User,
   Zap,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import {
+  useState,
+} from "react";
+import {
+  useRouter,
+} from "next/navigation";
 
-import { useAuth } from "../hooks/useAuth";
-import InputRow from "./components/InputRow";
-import ResultCard from "./components/ResultCard";
-import AdBanner from "./components/AdBanner";
-import MoreTools from "./components/MoreTools";
+import {
+  useAuth,
+} from "../hooks/useAuth";
 import NavigationMenu from "./components/NavigationMenu";
-import ReportBuilderDialog, {
-  type ReportBuilderDetails,
-} from "./components/reports/ReportBuilderDialog";
 
-import {
-  calculateHeatInput,
-  PROCESS_EFFICIENCY,
-  type WeldingProcess,
-} from "../lib/heat-input";
+const tools = [
+  {
+    name: "Heat Input",
+    short: "HI",
+    description:
+      "Calculate welding heat input from voltage, amperage and travel speed.",
+    icon: Calculator,
+    path: "/heat-input",
+    accent: "kJ/mm",
+  },
+  {
+    name:
+      "Carbon Equivalent",
+    short: "CEq",
+    description:
+      "Calculate carbon equivalent from chemical composition values.",
+    icon: Sigma,
+    path: "/ceq",
+    accent: "CEq",
+  },
+  {
+    name:
+      "Preheat Temperature",
+    short: "Tp",
+    description:
+      "Calculate preheat temperature with the CET formula and defined ranges.",
+    icon: ThermometerSun,
+    path: "/preheat",
+    accent: "°C",
+  },
+] as const;
 
-import {
-  hasHeatInputValidationErrors,
-  validateHeatInputFields,
-} from "../lib/heat-input-validation";
+const premiumFeatures = [
+  {
+    icon: Save,
+    title:
+      "Save calculations",
+    description:
+      "Keep calculation records linked to your DOST account.",
+  },
+  {
+    icon: FileText,
+    title:
+      "PDF reporting",
+    description:
+      "Create professional calculation reports for project dossiers.",
+  },
+  {
+    icon: ShieldCheck,
+    title:
+      "One Premium suite",
+    description:
+      "Use all three welding calculators in one connected environment.",
+  },
+] as const;
 
-import {
-  ENTITLEMENTS,
-  hasEntitlement,
-} from "../lib/entitlements";
-
-import {
-  saveCalculation,
-} from "../firebase/calculations";
-
-
-const REPORT_REQUEST_TARGET_BYTES =
-  3_500_000;
-
-const REPORT_PHOTO_MAX_BYTES =
-  800 * 1024;
-
-const REPORT_PHOTO_MIN_BYTES =
-  180 * 1024;
-
-const REPORT_PHOTO_MAX_DIMENSION =
-  1600;
-
-function canvasToJpegBlob(
-  canvas: HTMLCanvasElement,
-  quality: number
-): Promise<Blob> {
-  return new Promise(
-    (resolve, reject) => {
-      canvas.toBlob(
-        (blob) => {
-          if (blob) {
-            resolve(blob);
-            return;
-          }
-
-          reject(
-            new Error(
-              "REPORT_PHOTO_ENCODING_FAILED"
-            )
-          );
-        },
-        "image/jpeg",
-        quality
-      );
-    }
-  );
-}
-
-async function compressReportPhoto(
-  file: File,
-  targetBytes: number,
-  index: number
-): Promise<File> {
-  if (file.size <= targetBytes) {
-    return file;
-  }
-
-  const bitmap =
-    await createImageBitmap(file);
-
-  try {
-    const initialScale =
-      Math.min(
-        1,
-        REPORT_PHOTO_MAX_DIMENSION /
-          Math.max(
-            bitmap.width,
-            bitmap.height
-          )
-      );
-
-    let width =
-      Math.max(
-        1,
-        Math.round(
-          bitmap.width *
-            initialScale
-        )
-      );
-
-    let height =
-      Math.max(
-        1,
-        Math.round(
-          bitmap.height *
-            initialScale
-        )
-      );
-
-    let quality = 0.84;
-
-    let bestBlob: Blob | null =
-      null;
-
-    for (
-      let attempt = 0;
-      attempt < 8;
-      attempt += 1
-    ) {
-      const canvas =
-        document.createElement(
-          "canvas"
-        );
-
-      canvas.width = width;
-      canvas.height = height;
-
-      const context =
-        canvas.getContext("2d");
-
-      if (!context) {
-        throw new Error(
-          "REPORT_PHOTO_CANVAS_FAILED"
-        );
-      }
-
-      context.fillStyle =
-        "#ffffff";
-
-      context.fillRect(
-        0,
-        0,
-        width,
-        height
-      );
-
-      context.drawImage(
-        bitmap,
-        0,
-        0,
-        width,
-        height
-      );
-
-      const blob =
-        await canvasToJpegBlob(
-          canvas,
-          quality
-        );
-
-      bestBlob = blob;
-
-      if (
-        blob.size <= targetBytes
-      ) {
-        break;
-      }
-
-      if (quality > 0.58) {
-        quality =
-          Math.max(
-            0.58,
-            quality - 0.09
-          );
-      } else {
-        width =
-          Math.max(
-            640,
-            Math.round(
-              width * 0.82
-            )
-          );
-
-        height =
-          Math.max(
-            480,
-            Math.round(
-              height * 0.82
-            )
-          );
-
-        quality = 0.68;
-      }
-    }
-
-    if (!bestBlob) {
-      throw new Error(
-        "REPORT_PHOTO_ENCODING_FAILED"
-      );
-    }
-
-    return new File(
-      [bestBlob],
-      `report-photo-${index + 1}.jpg`,
-      {
-        type: "image/jpeg",
-        lastModified:
-          file.lastModified,
-      }
-    );
-  } finally {
-    bitmap.close();
-  }
-}
-
-async function prepareReportPhotos(
-  files: File[],
-  logoSize: number
-): Promise<File[]> {
-  if (files.length === 0) {
-    return [];
-  }
-
-  const availablePhotoBudget =
-    Math.max(
-      REPORT_PHOTO_MIN_BYTES *
-        files.length,
-      REPORT_REQUEST_TARGET_BYTES -
-        Math.min(
-          logoSize,
-          3 * 1024 * 1024
-        )
-    );
-
-  const targetPerPhoto =
-    Math.max(
-      REPORT_PHOTO_MIN_BYTES,
-      Math.min(
-        REPORT_PHOTO_MAX_BYTES,
-        Math.floor(
-          availablePhotoBudget /
-            files.length
-        )
-      )
-    );
-
-  return Promise.all(
-    files.map(
-      (file, index) =>
-        compressReportPhoto(
-          file,
-          targetPerPhoto,
-          index
-        )
-    )
-  );
-}
-
-export default function Home() {
+export default function HomePage() {
   const router = useRouter();
 
   const {
@@ -282,522 +91,388 @@ export default function Home() {
     loading,
   } = useAuth();
 
-  const [menuOpen, setMenuOpen] =
-    useState(false);
-
-  const [voltage, setVoltage] =
-    useState("");
-
-  const [amperage, setAmperage] =
-    useState("");
-
-  const [speed, setSpeed] =
-    useState("");
-
-  const [useFactor, setUseFactor] =
-    useState(true);
-
-  const [processName, setProcessName] =
-    useState<WeldingProcess>(
-      "MIG / MAG"
-    );
-
-  const [efficiency, setEfficiency] =
-    useState(
-      PROCESS_EFFICIENCY["MIG / MAG"]
-    );
-
-  const [saving, setSaving] =
-    useState(false);
-
   const [
-    saveMessage,
-    setSaveMessage,
-  ] = useState("");
-
-  const [
-    saveError,
-    setSaveError,
-  ] = useState("");
-
-  const [
-    reportBuilderOpen,
-    setReportBuilderOpen,
+    menuOpen,
+    setMenuOpen,
   ] = useState(false);
 
-  const [
-    generatingReport,
-    setGeneratingReport,
-  ] = useState(false);
-
-  const [
-    reportError,
-    setReportError,
-  ] = useState("");
-
-  const validationErrors =
-    validateHeatInputFields(
-      voltage,
-      amperage,
-      speed
+  const isPremium =
+    Boolean(
+      profile?.entitlements?.length
     );
-
-  const hasValidationErrors =
-    hasHeatInputValidationErrors(
-      validationErrors
-    );
-
-  const result = hasValidationErrors
-    ? null
-    : calculateHeatInput(
-        voltage,
-        amperage,
-        speed,
-        efficiency,
-        useFactor
-      );
-
-  const canSaveCalculations =
-    hasEntitlement(
-      profile?.entitlements,
-      ENTITLEMENTS.SAVE_CALCULATIONS
-    );
-
-  const reportCalculationData = [
-    {
-      label: "Voltage",
-      value: voltage
-        ? `${voltage} V`
-        : "—",
-    },
-    {
-      label: "Amperage",
-      value: amperage
-        ? `${amperage} A`
-        : "—",
-    },
-    {
-      label: "Travel Speed",
-      value: speed
-        ? `${speed} mm/min`
-        : "—",
-    },
-    {
-      label: "Process",
-      value: processName,
-    },
-    {
-      label: "K-Factor",
-      value: useFactor
-        ? efficiency.toFixed(2)
-        : "Not applied",
-    },
-    {
-      label: "Heat Input",
-      value:
-        result !== null
-          ? `${result.toFixed(
-              2
-            )} kJ/mm`
-          : "—",
-      highlight: true,
-    },
-  ];
-
-  function handleOpenReportBuilder() {
-    setReportError("");
-
-    if (!user) {
-      router.push("/login");
-      return;
-    }
-
-    if (result === null) {
-      setReportError(
-        "Complete the calculation before creating a report."
-      );
-
-      return;
-    }
-
-    setReportBuilderOpen(true);
-  }
-
-  async function handleGenerateReport(
-    details: ReportBuilderDetails
-  ) {
-    setReportError("");
-
-    if (!user) {
-      router.push("/login");
-      return;
-    }
-
-    if (result === null) {
-      setReportError(
-        "Complete the calculation before creating a report."
-      );
-
-      return;
-    }
-
-    setGeneratingReport(true);
-
-    try {
-      const idToken =
-        await user.getIdToken();
-
-      const preparedPhotos =
-        await prepareReportPhotos(
-          details.photos,
-          details.logo?.size ?? 0
-        );
-
-      const formData =
-        new FormData();
-
-      formData.set(
-        "moduleId",
-        "heat-input"
-      );
-
-      formData.set(
-        "voltage",
-        voltage
-      );
-
-      formData.set(
-        "amperage",
-        amperage
-      );
-
-      formData.set(
-        "travelSpeed",
-        speed
-      );
-
-      formData.set(
-        "process",
-        processName
-      );
-
-      formData.set(
-        "useFactor",
-        String(useFactor)
-      );
-
-      if (details.projectName) {
-        formData.set(
-          "projectName",
-          details.projectName
-        );
-      }
-
-      if (details.projectNumber) {
-        formData.set(
-          "projectNumber",
-          details.projectNumber
-        );
-      }
-
-      if (details.reportDate) {
-        formData.set(
-          "reportDate",
-          details.reportDate
-        );
-      }
-
-      if (details.standard) {
-        formData.set(
-          "standard",
-          details.standard
-        );
-      }
-
-      formData.set(
-        "reportTheme",
-        details.reportTheme
-      );
-
-      if (details.preparedBy) {
-        formData.set(
-          "preparedBy",
-          details.preparedBy
-        );
-      }
-
-      if (
-        details.preparedByRole
-      ) {
-        formData.set(
-          "preparedByRole",
-          details.preparedByRole
-        );
-      }
-
-      if (details.logo) {
-        formData.set(
-          "logo",
-          details.logo
-        );
-      }
-
-      preparedPhotos.forEach(
-        (photo) => {
-          formData.append(
-            "photos",
-            photo,
-            photo.name
-          );
-        }
-      );
-
-      const response =
-        await fetch(
-          "/api/reports/generate",
-          {
-            method: "POST",
-
-            headers: {
-              Authorization:
-                `Bearer ${idToken}`,
-            },
-
-            body: formData,
-          }
-        );
-
-      if (!response.ok) {
-        let message =
-          "The PDF report could not be generated.";
-
-        try {
-          const errorData =
-            (await response.json()) as {
-              error?: string;
-              code?: string;
-            };
-
-          if (errorData.error) {
-            message =
-              errorData.error;
-          }
-
-          if (
-            errorData.code ===
-            "PDF_EXPORT_REQUIRED"
-          ) {
-            message =
-              "A PDF export credit or DOST Premium subscription is required.";
-          }
-
-          if (
-            errorData.code ===
-            "PDF_CREDIT_UNAVAILABLE"
-          ) {
-            message =
-              "The PDF export credit is no longer available. Please try again.";
-          }
-        } catch {
-          // Keep the default message.
-        }
-
-        setReportError(message);
-        return;
-      }
-
-      const pdfBlob =
-        await response.blob();
-
-      const contentDisposition =
-        response.headers.get(
-          "content-disposition"
-        );
-
-      const fileNameMatch =
-        contentDisposition?.match(
-          /filename="([^"]+)"/i
-        );
-
-      const reportId =
-        response.headers.get(
-          "x-dost-report-id"
-        );
-
-      const fileName =
-        fileNameMatch?.[1] ??
-        (reportId
-          ? `DOST-${reportId}.pdf`
-          : "DOST-PDF-Report.pdf");
-
-      const objectUrl =
-        URL.createObjectURL(
-          pdfBlob
-        );
-
-      const downloadLink =
-        document.createElement(
-          "a"
-        );
-
-      downloadLink.href =
-        objectUrl;
-
-      downloadLink.download =
-        fileName;
-
-      document.body.appendChild(
-        downloadLink
-      );
-
-      downloadLink.click();
-
-      downloadLink.remove();
-
-      window.setTimeout(
-        () => {
-          URL.revokeObjectURL(
-            objectUrl
-          );
-        },
-        1000
-      );
-
-      setReportBuilderOpen(false);
-    } catch (error) {
-      console.error(
-        "Failed to generate PDF report:",
-        error
-      );
-
-      setReportError(
-        "The PDF report could not be generated."
-      );
-    } finally {
-      setGeneratingReport(false);
-    }
-  }
-
-  async function handleSaveCalculation() {
-    setSaveMessage("");
-    setSaveError("");
-
-    if (!user) {
-      router.push("/login");
-      return;
-    }
-
-    if (!canSaveCalculations) {
-      router.push("/account");
-      return;
-    }
-
-    if (result === null) {
-      setSaveError(
-        "Complete the calculation before saving."
-      );
-      return;
-    }
-
-    setSaving(true);
-
-    try {
-      await saveCalculation(
-        user.uid,
-        "heat-input",
-        {
-          voltage: Number(voltage),
-          amperage: Number(amperage),
-          travelSpeed: Number(speed),
-          process: processName,
-          useFactor,
-          efficiency: useFactor
-            ? efficiency
-            : 1,
-        },
-        {
-          heatInput: result,
-          unit: "kJ/mm",
-        }
-      );
-
-      setSaveMessage(
-        "Calculation saved."
-      );
-    } catch (error) {
-      console.error(
-        "Failed to save calculation:",
-        error
-      );
-
-      setSaveError(
-        "Calculation could not be saved."
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#020617] text-white">
-        <div className="rounded-2xl border border-cyan-500/20 bg-black/60 px-8 py-6 text-center shadow-[0_0_40px_rgba(0,255,255,0.08)]">
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">
+      <main className="flex min-h-screen items-center justify-center bg-[var(--dost-bg)] text-[var(--dost-text)]">
+        <div className="rounded-2xl border border-cyan-500/20 bg-[var(--dost-surface-60)] px-8 py-6 text-center shadow-[0_0_50px_rgba(0,255,255,0.08)]">
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-cyan-300">
             DOST Industries
           </p>
 
-          <p className="mt-3 text-sm text-zinc-500">
-            Loading...
+          <p className="mt-3 text-sm text-[var(--dost-muted)]">
+            Initializing system...
           </p>
         </div>
       </main>
     );
   }
 
-  const inputClassName =
-    "h-[38px] sm:h-[54px] w-full rounded-lg sm:rounded-xl border border-cyan-500/20 bg-black/70 px-3 sm:px-5 text-base sm:text-2xl text-white transition-all duration-300 hover:border-cyan-400/40 hover:bg-cyan-400/[0.03] focus:border-cyan-300 focus:outline-none focus:shadow-[0_0_18px_rgba(0,255,255,0.15)]";
-
-  const invalidInputClassName =
-    "border-red-500/70 focus:border-red-400 focus:shadow-[0_0_18px_rgba(239,68,68,0.15)]";
-
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#020617] text-white">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(0,255,255,0.07),transparent_45%)]" />
+    <main className="relative min-h-screen overflow-hidden bg-[var(--dost-bg)] text-[var(--dost-text)]">
+      <div className="pointer-events-none absolute inset-0 dost-radial-bg" />
+      <div className="pointer-events-none absolute inset-0 dost-grid-bg" />
 
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(0,255,255,0.025)_1px,transparent_1px),linear-gradient(90deg,rgba(0,255,255,0.025)_1px,transparent_1px)] bg-[size:48px_48px]" />
+      <div className="pointer-events-none absolute left-1/2 top-[-260px] h-[540px] w-[540px] -translate-x-1/2 rounded-full border border-cyan-400/10 shadow-[0_0_140px_rgba(0,255,255,0.08)] sm:h-[700px] sm:w-[700px]" />
+      <div className="pointer-events-none absolute left-1/2 top-[-170px] h-[360px] w-[360px] -translate-x-1/2 rounded-full border border-cyan-400/10 sm:h-[500px] sm:w-[500px]" />
+      <div className="pointer-events-none absolute left-1/2 top-[-80px] h-[180px] w-[180px] -translate-x-1/2 rounded-full border border-cyan-300/20 shadow-[0_0_80px_rgba(0,255,255,0.08)] sm:h-[280px] sm:w-[280px]" />
 
-      <header className="relative z-20 border-b border-cyan-500/20 bg-black/60 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-2 py-1 sm:px-6 sm:py-2">
+      <header className="relative z-30 border-b border-cyan-500/20 bg-[var(--dost-surface-60)] backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-3 py-2 sm:px-6 sm:py-3">
           <button
             type="button"
             onClick={() =>
               setMenuOpen(true)
             }
             aria-label="Open navigation menu"
-            aria-expanded={menuOpen}
-            className="group flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-500/20 bg-black/40 transition-all hover:border-cyan-400/60 sm:h-14 sm:w-14"
+            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-500/20 bg-[var(--dost-surface-40)] transition hover:border-cyan-400/60 sm:h-13 sm:w-13"
           >
-            <div className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/20 bg-black/40 sm:h-12 sm:w-12">
-              <Menu
-                size={22}
-                className="text-cyan-300"
-              />
-            </div>
+            <Menu
+              size={21}
+              className="text-cyan-300"
+            />
           </button>
 
-          <div className="text-center">
-            <h1 className="text-[0.9rem] font-black uppercase italic leading-none tracking-[0.26em] sm:text-[2.4rem] sm:tracking-[0.7em]">
-              <span className="text-white">
+          <button
+            type="button"
+            onClick={() =>
+              router.push("/")
+            }
+            className="text-center"
+          >
+            <p className="text-[0.92rem] font-black uppercase italic leading-none tracking-[0.28em] sm:text-2xl sm:tracking-[0.48em]">
+              <span className="text-[var(--dost-text)]">
                 DOST
               </span>{" "}
-              <span className="text-cyan-400 drop-shadow-[0_0_20px_rgba(0,255,255,0.8)]">
+              <span className="text-cyan-400 drop-shadow-[0_0_18px_rgba(0,255,255,0.6)]">
                 INDUSTRIES
               </span>
-            </h1>
+            </p>
 
-            <p className="mt-1 text-[0.48rem] uppercase tracking-[0.35em] text-zinc-500 sm:text-sm sm:tracking-[0.45em]">
-              Digital Welding & Engineering
-              Tools
+            <p className="mt-1 text-[0.42rem] uppercase tracking-[0.34em] text-[var(--dost-muted)] sm:text-[0.65rem]">
+              Digital Welding & Engineering Tools
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              router.push(
+                user
+                  ? "/account"
+                  : "/login"
+              )
+            }
+            aria-label={
+              user
+                ? "Open account"
+                : "Login"
+            }
+            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-500/20 bg-[var(--dost-surface-40)] transition hover:border-cyan-400/60 sm:h-13 sm:w-13"
+          >
+            <User
+              size={21}
+              className="text-cyan-300"
+            />
+          </button>
+        </div>
+      </header>
+
+      <NavigationMenu
+        open={menuOpen}
+        isAuthenticated={
+          Boolean(user)
+        }
+        onClose={() =>
+          setMenuOpen(false)
+        }
+      />
+
+      <section className="relative z-10 mx-auto max-w-6xl px-4 pb-8 pt-10 sm:px-6 sm:pb-14 sm:pt-20">
+        <div className="mx-auto max-w-4xl text-center">
+          <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-cyan-400/25 bg-cyan-400/[0.06] px-4 py-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 shadow-[0_0_12px_rgba(0,255,255,0.9)]" />
+
+            <span className="text-[0.58rem] font-semibold uppercase tracking-[0.22em] text-cyan-300 sm:text-[0.68rem]">
+              DOST Premium Suite
+            </span>
+          </div>
+
+          <div className="relative mt-8">
+            <div className="pointer-events-none absolute left-1/2 top-1/2 h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-400/10 blur-3xl sm:h-44 sm:w-44" />
+
+            <h1 className="relative text-4xl font-black uppercase leading-[0.9] tracking-[-0.04em] sm:text-7xl lg:text-8xl">
+              <span className="block text-[var(--dost-text)]">
+                Welding
+              </span>
+
+              <span className="block text-cyan-300 drop-shadow-[0_0_28px_rgba(0,255,255,0.2)]">
+                Calculation
+              </span>
+
+              <span className="block text-[var(--dost-text)]">
+                Intelligence
+              </span>
+            </h1>
+          </div>
+
+          <p className="mx-auto mt-6 max-w-2xl text-sm leading-6 text-[var(--dost-muted)] sm:text-base sm:leading-7">
+            Three focused calculation tools.
+            One connected professional workflow.
+            DOST Industries calculates, records and reports.
+          </p>
+
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  "/heat-input"
+                )
+              }
+              className="group flex w-full items-center justify-center gap-3 rounded-2xl border border-cyan-300/55 bg-cyan-400/10 px-6 py-4 text-xs font-semibold uppercase tracking-[0.17em] text-cyan-200 shadow-[0_0_35px_rgba(0,255,255,0.08)] transition hover:border-cyan-200 hover:bg-cyan-400/15 sm:w-auto"
+            >
+              Open calculators
+
+              <ArrowRight
+                size={17}
+                className="transition group-hover:translate-x-1"
+              />
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  user
+                    ? "/account"
+                    : "/login"
+                )
+              }
+              className="w-full rounded-2xl border border-cyan-500/20 bg-[var(--dost-surface-40)] px-6 py-4 text-xs font-semibold uppercase tracking-[0.17em] text-[var(--dost-text)] transition hover:border-cyan-400/50 sm:w-auto"
+            >
+              {user
+                ? isPremium
+                  ? "Premium account"
+                  : "View Premium"
+                : "Sign in"}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section className="relative z-10 mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
+        <div className="mb-7 flex items-center justify-center gap-4">
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent to-cyan-500/30" />
+
+          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-[var(--dost-muted)]">
+            Three core tools
+          </p>
+
+          <div className="h-px flex-1 bg-gradient-to-l from-transparent to-cyan-500/30" />
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          {tools.map(
+            ({
+              name,
+              short,
+              description,
+              icon: Icon,
+              path,
+              accent,
+            },
+            index) => (
+              <button
+                key={name}
+                type="button"
+                onClick={() =>
+                  router.push(path)
+                }
+                className="group relative overflow-hidden rounded-[26px] border border-cyan-500/20 bg-[var(--dost-surface-40)] p-5 text-left backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:border-cyan-300/55 hover:shadow-[0_0_45px_rgba(0,255,255,0.08)] sm:p-6"
+              >
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_75%_20%,rgba(0,255,255,0.08),transparent_38%)] opacity-70" />
+
+                <div className="absolute right-4 top-3 text-5xl font-black tracking-[-0.08em] text-cyan-400/[0.06] sm:text-6xl">
+                  0{index + 1}
+                </div>
+
+                <div className="relative z-10">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-400/30 bg-cyan-400/[0.07] shadow-[0_0_25px_rgba(0,255,255,0.06)]">
+                      <Icon
+                        size={27}
+                        className="text-cyan-300"
+                      />
+                    </div>
+
+                    <span className="rounded-full border border-cyan-400/20 px-3 py-1 text-[0.56rem] font-semibold uppercase tracking-[0.18em] text-cyan-300">
+                      {accent}
+                    </span>
+                  </div>
+
+                  <p className="mt-7 text-[0.58rem] font-semibold uppercase tracking-[0.22em] text-cyan-400">
+                    {short}
+                  </p>
+
+                  <h2 className="mt-2 text-xl font-bold uppercase tracking-[0.04em] text-[var(--dost-text)]">
+                    {name}
+                  </h2>
+
+                  <p className="mt-3 min-h-[72px] text-sm leading-6 text-[var(--dost-muted)]">
+                    {description}
+                  </p>
+
+                  <div className="mt-6 flex items-center justify-between border-t border-cyan-500/15 pt-4">
+                    <span className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-cyan-300">
+                      Launch tool
+                    </span>
+
+                    <ArrowRight
+                      size={17}
+                      className="text-cyan-300 transition group-hover:translate-x-1"
+                    />
+                  </div>
+                </div>
+              </button>
+            )
+          )}
+        </div>
+      </section>
+
+      <section className="relative z-10 mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
+        <div className="relative overflow-hidden rounded-[30px] border border-cyan-500/20 bg-[var(--dost-surface-50)] p-5 backdrop-blur-xl sm:p-8">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,255,255,0.07),transparent_55%)]" />
+
+          <div className="relative z-10 grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+            <div>
+              <div className="flex items-center gap-3">
+                <Sparkles
+                  size={20}
+                  className="text-cyan-300"
+                />
+
+                <p className="text-[0.62rem] font-semibold uppercase tracking-[0.24em] text-cyan-300">
+                  DOST Premium
+                </p>
+              </div>
+
+              <h2 className="mt-4 max-w-xl text-3xl font-black uppercase leading-tight tracking-[-0.03em] text-[var(--dost-text)] sm:text-5xl">
+                Built for the
+                <span className="text-cyan-300">
+                  {" "}
+                  complete calculation workflow
+                </span>
+              </h2>
+
+              <p className="mt-4 max-w-xl text-sm leading-6 text-[var(--dost-muted)] sm:text-base">
+                Move from calculation to saved record and professional PDF report without leaving the DOST environment.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {premiumFeatures.map(
+                ({
+                  icon: Icon,
+                  title,
+                  description,
+                }) => (
+                  <div
+                    key={title}
+                    className="flex gap-4 rounded-2xl border border-cyan-500/15 bg-[var(--dost-surface-30)] p-4"
+                  >
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-cyan-400/25 bg-cyan-400/[0.06]">
+                      <Icon
+                        size={20}
+                        className="text-cyan-300"
+                      />
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-semibold uppercase tracking-[0.08em] text-[var(--dost-text)]">
+                        {title}
+                      </p>
+
+                      <p className="mt-1 text-xs leading-5 text-[var(--dost-muted)]">
+                        {description}
+                      </p>
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="relative z-10 mx-auto max-w-6xl px-4 pb-16 pt-8 sm:px-6 sm:pb-24">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="rounded-2xl border border-cyan-500/15 bg-[var(--dost-surface-30)] p-5 text-center">
+            <Zap
+              size={22}
+              className="mx-auto text-cyan-300"
+            />
+
+            <p className="mt-3 text-2xl font-black text-[var(--dost-text)]">
+              3
+            </p>
+
+            <p className="mt-1 text-[0.58rem] uppercase tracking-[0.2em] text-[var(--dost-muted)]">
+              Calculation modules
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-cyan-500/15 bg-[var(--dost-surface-30)] p-5 text-center">
+            <Gauge
+              size={22}
+              className="mx-auto text-cyan-300"
+            />
+
+            <p className="mt-3 text-2xl font-black text-[var(--dost-text)]">
+              1
+            </p>
+
+            <p className="mt-1 text-[0.58rem] uppercase tracking-[0.2em] text-[var(--dost-muted)]">
+              Connected workflow
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-cyan-500/15 bg-[var(--dost-surface-30)] p-5 text-center">
+            <FileText
+              size={22}
+              className="mx-auto text-cyan-300"
+            />
+
+            <p className="mt-3 text-2xl font-black text-[var(--dost-text)]">
+              PDF
+            </p>
+
+            <p className="mt-1 text-[0.58rem] uppercase tracking-[0.2em] text-[var(--dost-muted)]">
+              Professional reporting
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-cyan-500/15 pt-6 text-center sm:flex-row sm:text-left">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--dost-text)]">
+              DOST
+              <span className="ml-2 text-cyan-400">
+                INDUSTRIES
+              </span>
+            </p>
+
+            <p className="mt-1 text-[0.58rem] uppercase tracking-[0.18em] text-[var(--dost-muted)]">
+              Digital Welding & Engineering Tools
             </p>
           </div>
 
@@ -810,370 +485,14 @@ export default function Home() {
                   : "/login"
               )
             }
-            className="group flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-500/20 bg-black/40 transition-all hover:border-cyan-400/60 sm:h-14 sm:w-14"
+            className="rounded-xl border border-cyan-500/20 bg-[var(--dost-surface-40)] px-5 py-3 text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-cyan-300 transition hover:border-cyan-400/50"
           >
-            <div className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/20 bg-black/40 sm:h-12 sm:w-12">
-              <User
-                size={22}
-                className="text-cyan-300"
-              />
-            </div>
+            {user
+              ? "Account & Premium"
+              : "Login to DOST"}
           </button>
         </div>
-      </header>
-
-      <NavigationMenu
-        open={menuOpen}
-        isAuthenticated={Boolean(user)}
-        onClose={() =>
-          setMenuOpen(false)
-        }
-      />
-
-      <section className="relative z-10 mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-10">
-        <div className="mx-auto max-w-5xl">
-          <div className="relative overflow-hidden rounded-[28px] border border-cyan-500/30 bg-black/50 p-4 shadow-[0_0_60px_rgba(0,255,255,0.12)] backdrop-blur-xl sm:rounded-[34px] sm:p-8">
-            <div className="absolute left-0 top-0 h-20 w-20 rounded-tl-[28px] border-l border-t border-cyan-400/60 sm:h-24 sm:w-24 sm:rounded-tl-[34px]" />
-
-            <div className="absolute right-0 top-0 h-20 w-20 rounded-tr-[28px] border-r border-t border-cyan-400/60 sm:h-24 sm:w-24 sm:rounded-tr-[34px]" />
-
-            <div className="absolute bottom-0 left-0 h-20 w-20 rounded-bl-[28px] border-b border-l border-cyan-400/60 sm:h-24 sm:w-24 sm:rounded-bl-[34px]" />
-
-            <div className="absolute bottom-0 right-0 h-20 w-20 rounded-br-[28px] border-b border-r border-cyan-400/60 sm:h-24 sm:w-24 sm:rounded-br-[34px]" />
-
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(0,255,255,0.08),transparent_60%)]" />
-
-            <div className="relative z-10">
-              <div className="mb-3 flex items-center justify-center gap-3 sm:mb-8">
-                <div className="h-px w-8 bg-cyan-500/40 sm:w-10" />
-
-                <h2 className="whitespace-nowrap text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-white sm:text-[1.35rem] sm:tracking-[0.22em]">
-                  HEAT INPUT
-                  <span className="ml-2 text-cyan-300">
-                    CALCULATOR
-                  </span>
-                </h2>
-
-                <div className="h-px w-8 bg-cyan-500/40 sm:w-10" />
-              </div>
-
-              <div className="space-y-0">
-                <InputRow
-                  icon={Zap}
-                  label="Voltage (V)"
-                >
-                  <div>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      min="0"
-                      step="0.01"
-                      value={voltage}
-                      onChange={(e) =>
-                        setVoltage(
-                          e.target.value
-                        )
-                      }
-                      aria-invalid={Boolean(
-                        validationErrors.voltage
-                      )}
-                      className={`${inputClassName} ${
-                        validationErrors.voltage
-                          ? invalidInputClassName
-                          : ""
-                      }`}
-                    />
-
-                    {validationErrors.voltage && (
-                      <p className="mt-1 text-xs text-red-400">
-                        {
-                          validationErrors.voltage
-                        }
-                      </p>
-                    )}
-                  </div>
-                </InputRow>
-
-                <InputRow
-                  icon={Activity}
-                  label="Amperage (A)"
-                >
-                  <div>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      min="0"
-                      step="0.01"
-                      value={amperage}
-                      onChange={(e) =>
-                        setAmperage(
-                          e.target.value
-                        )
-                      }
-                      aria-invalid={Boolean(
-                        validationErrors.amperage
-                      )}
-                      className={`${inputClassName} ${
-                        validationErrors.amperage
-                          ? invalidInputClassName
-                          : ""
-                      }`}
-                    />
-
-                    {validationErrors.amperage && (
-                      <p className="mt-1 text-xs text-red-400">
-                        {
-                          validationErrors.amperage
-                        }
-                      </p>
-                    )}
-                  </div>
-                </InputRow>
-
-                <InputRow
-                  icon={Gauge}
-                  label="Travel Speed (mm/min)"
-                >
-                  <div>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      min="0"
-                      step="0.01"
-                      value={speed}
-                      onChange={(e) =>
-                        setSpeed(
-                          e.target.value
-                        )
-                      }
-                      aria-invalid={Boolean(
-                        validationErrors.speed
-                      )}
-                      className={`${inputClassName} ${
-                        validationErrors.speed
-                          ? invalidInputClassName
-                          : ""
-                      }`}
-                    />
-
-                    {validationErrors.speed && (
-                      <p className="mt-1 text-xs text-red-400">
-                        {
-                          validationErrors.speed
-                        }
-                      </p>
-                    )}
-                  </div>
-                </InputRow>
-
-                <InputRow
-                  icon={Flame}
-                  label="Process"
-                >
-                  <select
-                    value={processName}
-                    onChange={(e) => {
-                      const selected =
-                        e.target
-                          .value as WeldingProcess;
-
-                      setProcessName(
-                        selected
-                      );
-
-                      setEfficiency(
-                        PROCESS_EFFICIENCY[
-                          selected
-                        ]
-                      );
-                    }}
-                    style={{
-                      backgroundColor:
-                        "#020617",
-                      color: "#ffffff",
-                    }}
-                    className={`${inputClassName} appearance-none`}
-                  >
-                    <option value="MIG / MAG">
-                      MIG / MAG
-                    </option>
-
-                    <option value="TIG">
-                      TIG
-                    </option>
-
-                    <option value="Elektrode">
-                      Elektrode
-                    </option>
-
-                    <option value="SAW">
-                      SAW
-                    </option>
-                  </select>
-                </InputRow>
-
-                <InputRow
-                  icon={Settings2}
-                  label="K-Factor"
-                >
-                  <div className="flex h-full items-center justify-end">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setUseFactor(
-                          (current) =>
-                            !current
-                        )
-                      }
-                      className={`relative h-7 w-14 rounded-full transition-all duration-300 sm:h-10 sm:w-20 ${
-                        useFactor
-                          ? "bg-cyan-400/90"
-                          : "bg-zinc-800"
-                      }`}
-                      aria-pressed={
-                        useFactor
-                      }
-                    >
-                      <div
-                        className={`absolute top-0.5 h-6 w-6 rounded-full bg-black transition-all duration-300 sm:top-1 sm:h-8 sm:w-8 ${
-                          useFactor
-                            ? "left-7 sm:left-11"
-                            : "left-0.5 sm:left-1"
-                        }`}
-                      />
-                    </button>
-                  </div>
-                </InputRow>
-              </div>
-
-              <div className="relative mt-2 h-5 sm:h-8">
-                <div className="absolute bottom-0 left-0 h-8 w-8 rounded-bl-xl border-b border-l border-cyan-400/60 sm:h-10 sm:w-10" />
-
-                <div className="absolute bottom-0 right-0 h-8 w-8 rounded-br-xl border-b border-r border-cyan-400/60 sm:h-10 sm:w-10" />
-              </div>
-
-              <ResultCard
-                result={result}
-              />
-
-              <div className="mt-4">
-                <button
-                  type="button"
-                  onClick={
-                    handleOpenReportBuilder
-                  }
-                  disabled={
-                    result === null
-                  }
-                  className="group relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl border border-cyan-300/50 bg-cyan-400/[0.08] px-5 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200 shadow-[0_0_25px_rgba(0,255,255,0.06)] transition-all duration-300 hover:border-cyan-200/80 hover:bg-cyan-400/[0.15] hover:shadow-[0_0_35px_rgba(0,255,255,0.12)] disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm"
-                >
-                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(0,255,255,0.05),transparent)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-
-                  <FileDown
-                    size={18}
-                    className="relative"
-                  />
-
-                  <span className="relative">
-                    {!user
-                      ? "Sign in to export PDF"
-                      : "Export PDF"}
-                  </span>
-                </button>
-
-                <p className="mt-2 text-center text-[0.7rem] uppercase tracking-[0.12em] text-zinc-600">
-                  Calculation report
-                </p>
-
-                {reportError && (
-                  <p className="mt-2 text-center text-xs text-red-400">
-                    {reportError}
-                  </p>
-                )}
-              </div>
-
-              <div className="mt-4">
-                <button
-                  type="button"
-                  onClick={() =>
-                    void handleSaveCalculation()
-                  }
-                  disabled={
-                    saving ||
-                    result === null
-                  }
-                  className="flex w-full items-center justify-center gap-3 rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300 transition-all duration-300 hover:border-cyan-300/60 hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm"
-                >
-                  <Save size={18} />
-
-                  {saving
-                    ? "Saving..."
-                    : !user
-                      ? "Sign in to save"
-                      : canSaveCalculations
-                        ? "Save calculation"
-                        : "Unlock calculation saving"}
-                </button>
-
-                {!user && (
-                  <p className="mt-2 text-center text-xs text-zinc-500">
-                    Sign in to use saved
-                    calculations.
-                  </p>
-                )}
-
-                {user &&
-                  !canSaveCalculations && (
-                    <p className="mt-2 text-center text-xs text-zinc-500">
-                      Calculation saving is
-                      included with DOST
-                      Premium.
-                    </p>
-                  )}
-
-                {saveMessage && (
-                  <p className="mt-2 text-center text-xs text-emerald-400">
-                    {saveMessage}
-                  </p>
-                )}
-
-                {saveError && (
-                  <p className="mt-2 text-center text-xs text-red-400">
-                    {saveError}
-                  </p>
-                )}
-              </div>
-
-              <AdBanner />
-
-              <MoreTools />
-            </div>
-          </div>
-        </div>
       </section>
-
-      <ReportBuilderDialog
-        open={reportBuilderOpen}
-        reportTitle="PDF Report"
-        reportSubtitle="Heat Input Calculation"
-        calculationData={
-          reportCalculationData
-        }
-        formula={
-          useFactor
-            ? "HI = (V × A × 60 × k) / (1000 × S)"
-            : "HI = (V × A × 60) / (1000 × S)"
-        }
-        generating={
-          generatingReport
-        }
-        onClose={() =>
-          setReportBuilderOpen(false)
-        }
-        onGenerate={
-          handleGenerateReport
-        }
-      />
     </main>
   );
 }
