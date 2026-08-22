@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -59,30 +60,58 @@ export function ThemeProvider({
         ? "light"
         : "dark";
 
-    setThemeState(initialTheme);
-    applyTheme(initialTheme);
+    const frame =
+      window.requestAnimationFrame(
+        () => {
+          setThemeState(
+            initialTheme
+          );
+
+          applyTheme(
+            initialTheme
+          );
+        }
+      );
+
+    return () => {
+      window.cancelAnimationFrame(
+        frame
+      );
+    };
   }, []);
 
-  function setTheme(
-    nextTheme: DostTheme
-  ) {
-    setThemeState(nextTheme);
+  const setTheme =
+    useCallback(
+      (
+        nextTheme: DostTheme
+      ) => {
+        setThemeState(
+          nextTheme
+        );
 
-    window.localStorage.setItem(
-      STORAGE_KEY,
-      nextTheme
+        window.localStorage.setItem(
+          STORAGE_KEY,
+          nextTheme
+        );
+
+        applyTheme(
+          nextTheme
+        );
+      },
+      []
     );
 
-    applyTheme(nextTheme);
-  }
-
-  function toggleTheme() {
-    setTheme(
-      theme === "dark"
-        ? "light"
-        : "dark"
-    );
-  }
+  const toggleTheme =
+    useCallback(() => {
+      setTheme(
+        theme === "dark"
+          ? "light"
+          : "dark"
+      );
+    }, [
+      setTheme,
+      theme,
+    ]);
 
   const value =
     useMemo(
@@ -91,7 +120,11 @@ export function ThemeProvider({
         setTheme,
         toggleTheme,
       }),
-      [theme]
+      [
+        theme,
+        setTheme,
+        toggleTheme,
+      ]
     );
 
   return (
